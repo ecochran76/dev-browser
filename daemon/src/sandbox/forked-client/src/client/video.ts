@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { EventEmitter } from './eventEmitter';
+import { EventEmitter } from "./eventEmitter";
 
 export class Video extends EventEmitter {
   constructor(page, connection, artifact) {
@@ -10,17 +10,17 @@ export class Video extends EventEmitter {
   }
 
   async start() {
-    throw new Error('Video capture is not available in the QuickJS sandbox');
+    throw new Error("Video capture is not available in the QuickJS sandbox");
   }
 
   async stop() {}
 
   async path() {
-    throw new Error('Video capture is not available in the QuickJS sandbox');
+    throw new Error("Video capture is not available in the QuickJS sandbox");
   }
 
   async saveAs() {
-    throw new Error('Video capture is not available in the QuickJS sandbox');
+    throw new Error("Video capture is not available in the QuickJS sandbox");
   }
 
   async delete() {

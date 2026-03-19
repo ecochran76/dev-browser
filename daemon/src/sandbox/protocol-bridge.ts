@@ -5,8 +5,7 @@ import type { ClientConnectionLike, PlaywrightClientLike } from "./playwright-in
 type DeliveryScheduler = (task: () => void) => void;
 
 export interface ProtocolBridgeOptions
-  extends Omit<HostBridgeOptions, "sendToSandbox">,
-    Omit<SandboxTransportOptions, "sendToHost"> {
+  extends Omit<HostBridgeOptions, "sendToSandbox">, Omit<SandboxTransportOptions, "sendToHost"> {
   schedule?: DeliveryScheduler;
 }
 
@@ -14,10 +13,7 @@ function defaultSchedule(task: () => void): void {
   setImmediate(task);
 }
 
-function scheduleDelivery(
-  schedule: DeliveryScheduler,
-  deliver: () => void | Promise<void>
-): void {
+function scheduleDelivery(schedule: DeliveryScheduler, deliver: () => void | Promise<void>): void {
   schedule(() => {
     Promise.resolve(deliver()).catch((error: unknown) => {
       queueMicrotask(() => {

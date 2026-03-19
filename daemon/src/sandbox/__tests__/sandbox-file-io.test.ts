@@ -14,7 +14,11 @@ import { promisify } from "node:util";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { BrowserManager } from "../../browser-manager.js";
-import { DEV_BROWSER_TMP_DIR, ensureDevBrowserTempDir, resolveDevBrowserTempPath } from "../../temp-files.js";
+import {
+  DEV_BROWSER_TMP_DIR,
+  ensureDevBrowserTempDir,
+  resolveDevBrowserTempPath,
+} from "../../temp-files.js";
 import { runScript } from "../script-runner-quickjs.js";
 
 const execFileAsync = promisify(execFile);
@@ -107,11 +111,14 @@ describe.sequential("QuickJS sandbox file I/O", () => {
     return output;
   }
 
-  async function expectSandboxScriptToThrow(script: string, matcher = INVALID_PATH_ERROR): Promise<void> {
+  async function expectSandboxScriptToThrow(
+    script: string,
+    matcher = INVALID_PATH_ERROR
+  ): Promise<void> {
     const output = createOutput();
-    await expect(runScript(script, manager, browserName, output.sink, { timeout: 60_000 })).rejects.toThrow(
-      matcher,
-    );
+    await expect(
+      runScript(script, manager, browserName, output.sink, { timeout: 60_000 })
+    ).rejects.toThrow(matcher);
   }
 
   it("saves screenshot buffers into the controlled temp directory", async () => {
@@ -129,7 +136,9 @@ describe.sequential("QuickJS sandbox file I/O", () => {
 
     const result = parseLastJsonLine<{ savedPath: string; size: number }>(output);
     expect(result.savedPath).toBe(expectedPath);
-    expect(result.savedPath.startsWith(`${path.resolve(DEV_BROWSER_TMP_DIR)}${path.sep}`)).toBe(true);
+    expect(result.savedPath.startsWith(`${path.resolve(DEV_BROWSER_TMP_DIR)}${path.sep}`)).toBe(
+      true
+    );
     expect(result.size).toBeGreaterThan(0);
     expect((await stat(result.savedPath)).size).toBeGreaterThan(0);
   }, 120_000);
@@ -202,11 +211,11 @@ describe.sequential("QuickJS sandbox file I/O", () => {
 
     for (const invalidName of invalidNames) {
       await expectSandboxScriptToThrow(
-        `await writeFile(${JSON.stringify(invalidName)}, "blocked");`,
+        `await writeFile(${JSON.stringify(invalidName)}, "blocked");`
       );
       await expectSandboxScriptToThrow(`await readFile(${JSON.stringify(invalidName)});`);
       await expectSandboxScriptToThrow(
-        `await saveScreenshot(new Uint8Array([1, 2, 3]), ${JSON.stringify(invalidName)});`,
+        `await saveScreenshot(new Uint8Array([1, 2, 3]), ${JSON.stringify(invalidName)});`
       );
     }
   });
@@ -231,7 +240,7 @@ describe.sequential("QuickJS sandbox file I/O", () => {
     await symlink(targetPath, symlinkPath);
 
     await expectSandboxScriptToThrow(
-      `await writeFile(${JSON.stringify(symlinkName)}, "should fail");`,
+      `await writeFile(${JSON.stringify(symlinkName)}, "should fail");`
     );
     await expectSandboxScriptToThrow(`await readFile(${JSON.stringify(symlinkName)});`);
   });

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { captureRawStack } from './stackTrace';
+import { captureRawStack } from "./stackTrace";
 
 export class ManualPromise<T = void> extends Promise<T> {
   private _resolve!: (t: T) => void;
@@ -53,7 +53,7 @@ export class ManualPromise<T = void> extends Promise<T> {
   }
 
   override get [Symbol.toStringTag]() {
-    return 'ManualPromise';
+    return "ManualPromise";
   }
 }
 
@@ -66,15 +66,13 @@ export class LongStandingScope {
   reject(error: Error) {
     this._isClosed = true;
     this._terminateError = error;
-    for (const p of this._terminatePromises.keys())
-      p.resolve(error);
+    for (const p of this._terminatePromises.keys()) p.resolve(error);
   }
 
   close(error: Error) {
     this._isClosed = true;
     this._closeError = error;
-    for (const [p, frames] of this._terminatePromises)
-      p.resolve(cloneError(error, frames));
+    for (const [p, frames] of this._terminatePromises) p.resolve(cloneError(error, frames));
   }
 
   isClosed() {
@@ -82,7 +80,7 @@ export class LongStandingScope {
   }
 
   static async raceMultiple<T>(scopes: LongStandingScope[], promise: Promise<T>): Promise<T> {
-    return Promise.race(scopes.map(s => s.race(promise)));
+    return Promise.race(scopes.map((s) => s.race(promise)));
   }
 
   async race<T>(promise: Promise<T> | Promise<T>[]): Promise<T> {
@@ -98,15 +96,13 @@ export class LongStandingScope {
   private async _race(promises: Promise<any>[], safe: boolean, defaultValue?: any): Promise<any> {
     const terminatePromise = new ManualPromise<Error>();
     const frames = captureRawStack();
-    if (this._terminateError)
-      terminatePromise.resolve(this._terminateError);
-    if (this._closeError)
-      terminatePromise.resolve(cloneError(this._closeError, frames));
+    if (this._terminateError) terminatePromise.resolve(this._terminateError);
+    if (this._closeError) terminatePromise.resolve(cloneError(this._closeError, frames));
     this._terminatePromises.set(terminatePromise, frames);
     try {
       return await Promise.race([
-        terminatePromise.then(e => safe ? defaultValue : Promise.reject(e)),
-        ...promises
+        terminatePromise.then((e) => (safe ? defaultValue : Promise.reject(e))),
+        ...promises,
       ]);
     } finally {
       this._terminatePromises.delete(terminatePromise);
@@ -118,6 +114,6 @@ function cloneError(error: Error, frames: string[]) {
   const clone = new Error();
   clone.name = error.name;
   clone.message = error.message;
-  clone.stack = [error.name + ':' + error.message, ...frames].join('\n');
+  clone.stack = [error.name + ":" + error.message, ...frames].join("\n");
   return clone;
 }

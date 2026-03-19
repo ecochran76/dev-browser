@@ -94,9 +94,7 @@ function createMessageQueue(socket: net.Socket) {
 
   return {
     push(message: Response): Promise<void> {
-      queue = queue
-        .then(() => writeMessage(socket, message))
-        .catch(() => undefined);
+      queue = queue.then(() => writeMessage(socket, message)).catch(() => undefined);
       return queue;
     },
     async drain(): Promise<void> {
@@ -120,27 +118,22 @@ async function handleExecute(socket: net.Socket, request: ExecuteRequest): Promi
     const output = createMessageQueue(socket);
 
     try {
-      await runScript(
-        request.script,
-        manager,
-        request.browser,
-        {
-          onStdout: (data) => {
-            void output.push({
-              id: request.id,
-              type: "stdout",
-              data,
-            });
-          },
-          onStderr: (data) => {
-            void output.push({
-              id: request.id,
-              type: "stderr",
-              data,
-            });
-          },
+      await runScript(request.script, manager, request.browser, {
+        onStdout: (data) => {
+          void output.push({
+            id: request.id,
+            type: "stdout",
+            data,
+          });
         },
-      );
+        onStderr: (data) => {
+          void output.push({
+            id: request.id,
+            type: "stderr",
+            data,
+          });
+        },
+      });
 
       await output.drain();
       await writeMessage(socket, {

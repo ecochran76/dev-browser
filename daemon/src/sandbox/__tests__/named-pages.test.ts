@@ -94,21 +94,27 @@ describe.sequential("QuickJS named page management", () => {
     const sandbox = await createSandbox(output);
 
     try {
-      await runUserScript(sandbox, `
+      await runUserScript(
+        sandbox,
+        `
         const page = await browser.getPage("persist");
         await page.goto("https://example.com");
         await page.evaluate(() => {
           window.name = "persisted-state";
         });
         console.log(await page.title());
-      `);
+      `
+      );
 
-      await runUserScript(sandbox, `
+      await runUserScript(
+        sandbox,
+        `
         const page = await browser.getPage("persist");
         console.log(page.url());
         console.log(await page.title());
         console.log(await page.evaluate(() => window.name));
-      `);
+      `
+      );
     } finally {
       await sandbox.dispose();
     }
@@ -130,11 +136,14 @@ describe.sequential("QuickJS named page management", () => {
     const sandbox = await createSandbox(output);
 
     try {
-      await runUserScript(sandbox, `
+      await runUserScript(
+        sandbox,
+        `
         const page = await browser.newPage();
         await page.goto("https://example.com");
         console.log(await page.title());
-      `);
+      `
+      );
     } finally {
       await sandbox.dispose();
     }
@@ -153,11 +162,14 @@ describe.sequential("QuickJS named page management", () => {
     const sandbox = await createSandbox(output);
 
     try {
-      await runUserScript(sandbox, `
+      await runUserScript(
+        sandbox,
+        `
         await browser.getPage("beta");
         await browser.getPage("alpha");
         console.log(JSON.stringify(await browser.listPages()));
-      `);
+      `
+      );
     } finally {
       await sandbox.dispose();
     }
@@ -184,7 +196,7 @@ describe.sequential("QuickJS named page management", () => {
           title: expect.any(String),
           url: expect.any(String),
         }),
-      ]),
+      ])
     );
     expect(pageNames(listedPages)).toEqual(["alpha", "beta"]);
     expect(pageNames(await manager.listPages(browserName))).toEqual(["alpha", "beta"]);
@@ -195,14 +207,20 @@ describe.sequential("QuickJS named page management", () => {
     const sandbox = await createSandbox(output);
 
     try {
-      await runUserScript(sandbox, `
+      await runUserScript(
+        sandbox,
+        `
         await browser.getPage("close-me");
-      `);
-      await runUserScript(sandbox, `
+      `
+      );
+      await runUserScript(
+        sandbox,
+        `
         console.log(JSON.stringify(await browser.listPages()));
         await browser.closePage("close-me");
         console.log(JSON.stringify(await browser.listPages()));
-      `);
+      `
+      );
     } finally {
       await sandbox.dispose();
     }

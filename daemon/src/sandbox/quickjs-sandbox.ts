@@ -45,7 +45,7 @@ function formatArgs(args: unknown[]): string {
             depth: 6,
             compact: 3,
             breakLength: Infinity,
-          }),
+          })
     )
     .join(" ");
 }
@@ -63,9 +63,7 @@ function getSandboxClientBundleCode(): Promise<string> {
     bundleCodePromise = undefined;
     const message =
       error instanceof Error ? error.message : "Sandbox client bundle could not be read";
-    throw new Error(
-      `Failed to load sandbox client bundle at ${BUNDLE_PATH}: ${message}`,
-    );
+    throw new Error(`Failed to load sandbox client bundle at ${BUNDLE_PATH}: ${message}`);
   });
   return bundleCodePromise;
 }
@@ -88,7 +86,7 @@ function withWallClockTimeout<T>(promise: Promise<T>, timeoutMs?: number): Promi
       (error: unknown) => {
         globalThis.clearTimeout(timer);
         reject(error);
-      },
+      }
     );
   });
 }
@@ -323,7 +321,7 @@ export class QuickJSSandbox {
         `,
         {
           filename: "quickjs-runtime.js",
-        },
+        }
       );
 
       const bundleCode = await getSandboxClientBundleCode();
@@ -336,13 +334,13 @@ export class QuickJSSandbox {
         `,
         {
           filename: "sandbox-client.js",
-        },
+        }
       );
 
       const browserEntry = this.#options.manager.getBrowser(this.#options.browserName);
       if (!browserEntry) {
         throw new Error(
-          `Browser "${this.#options.browserName}" not found. It should have been created before script execution.`,
+          `Browser "${this.#options.browserName}" not found. It should have been created before script execution.`
         );
       }
       this.#hostBridge = new HostBridge({
@@ -502,7 +500,7 @@ export class QuickJSSandbox {
         `,
         {
           filename: "sandbox-init.js",
-        },
+        }
       );
 
       await this.#flushTransportQueue();
@@ -525,7 +523,7 @@ export class QuickJSSandbox {
         this.#host!.executeScript(script, {
           filename: "user-script.js",
         }),
-        this.#options.timeoutMs,
+        this.#options.timeoutMs
       );
 
       await this.#flushTransportQueue();
@@ -646,7 +644,7 @@ export class QuickJSSandbox {
   async #getPage(name: unknown): Promise<string> {
     const page = await this.#options.manager.getPage(
       this.#options.browserName,
-      requireString(name, "Page name or targetId"),
+      requireString(name, "Page name or targetId")
     );
     return extractGuid(page);
   }
@@ -663,14 +661,14 @@ export class QuickJSSandbox {
   async #closePage(name: unknown): Promise<void> {
     await this.#options.manager.closePage(
       this.#options.browserName,
-      requireString(name, "Page name"),
+      requireString(name, "Page name")
     );
   }
 
   async #writeTempFile(name: unknown, payload: unknown): Promise<string> {
     return await writeDevBrowserTempFile(
       requireString(name, "File name"),
-      decodeSandboxFilePayload(payload, "File data"),
+      decodeSandboxFilePayload(payload, "File data")
     );
   }
 

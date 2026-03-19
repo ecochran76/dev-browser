@@ -47,7 +47,7 @@ describe.sequential("BrowserManager page discovery", () => {
 
     const pages = await manager.listPages(browserName);
     const anonymousSummary = pages.find(
-      (page) => page.name === null && page.title === "Anonymous Tab",
+      (page) => page.name === null && page.title === "Anonymous Tab"
     );
 
     expect(anonymousSummary).toBeDefined();
@@ -57,7 +57,7 @@ describe.sequential("BrowserManager page discovery", () => {
         name: null,
         title: "Anonymous Tab",
         url: expect.stringContaining("data:text/html"),
-      }),
+      })
     );
 
     for (const page of pages) {
@@ -82,7 +82,7 @@ describe.sequential("BrowserManager page discovery", () => {
           title: "Dashboard",
           url: expect.stringContaining("data:text/html"),
         }),
-      ]),
+      ])
     );
   }, 120_000);
 
@@ -93,7 +93,7 @@ describe.sequential("BrowserManager page discovery", () => {
     await existingPage.goto(createDataUrl("Target Tab", "<p>existing tab</p>"));
 
     const targetSummary = (await manager.listPages(browserName)).find(
-      (page) => page.name === null && page.title === "Target Tab",
+      (page) => page.name === null && page.title === "Target Tab"
     );
 
     expect(targetSummary).toBeDefined();
@@ -102,7 +102,7 @@ describe.sequential("BrowserManager page discovery", () => {
 
     expect(connectedPage).toBe(existingPage);
     expect(
-      (await manager.listPages(browserName)).filter((page) => page.title === "Target Tab"),
+      (await manager.listPages(browserName)).filter((page) => page.title === "Target Tab")
     ).toHaveLength(1);
   }, 120_000);
 
@@ -120,7 +120,7 @@ describe.sequential("BrowserManager page discovery", () => {
     expect(secondPage).toBe(firstPage);
     await expect(secondPage.evaluate(() => window.name)).resolves.toBe("persisted-state");
     expect(
-      (await manager.listPages(browserName)).filter((page) => page.name === "persist"),
+      (await manager.listPages(browserName)).filter((page) => page.name === "persist")
     ).toHaveLength(1);
   }, 120_000);
 });

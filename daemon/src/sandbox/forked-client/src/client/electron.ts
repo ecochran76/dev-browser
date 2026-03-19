@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { ChannelOwner } from './channelOwner';
+import { ChannelOwner } from "./channelOwner";
 
 export class Electron extends ChannelOwner {
   static from(channel) {

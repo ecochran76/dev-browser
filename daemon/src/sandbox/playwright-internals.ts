@@ -61,7 +61,9 @@ function resolvePlaywrightInternal(modulePath: string): string {
   throw new Error(`Could not locate Playwright internals at ${modulePath}`);
 }
 
-const serverInternals = require(resolvePlaywrightInternal(path.join("lib", "server", "index.js"))) as {
+const serverInternals = require(
+  resolvePlaywrightInternal(path.join("lib", "server", "index.js"))
+) as {
   createPlaywright: (options: { sdkLanguage: string }) => unknown;
   DispatcherConnection: new (isLocal?: boolean) => DispatcherConnectionLike;
   RootDispatcher: new (
@@ -81,18 +83,14 @@ const clientInternals = require(
   Connection: new (platform: unknown) => ClientConnectionLike;
 };
 
-const nodePlatformInternals = require(resolvePlaywrightInternal(
-  path.join("lib", "server", "utils", "nodePlatform.js")
-)) as {
+const nodePlatformInternals = require(
+  resolvePlaywrightInternal(path.join("lib", "server", "utils", "nodePlatform.js"))
+) as {
   nodePlatform: unknown;
 };
 
-export const {
-  createPlaywright,
-  DispatcherConnection,
-  RootDispatcher,
-  PlaywrightDispatcher,
-} = serverInternals;
+export const { createPlaywright, DispatcherConnection, RootDispatcher, PlaywrightDispatcher } =
+  serverInternals;
 
 export const { Connection } = clientInternals;
 export const { nodePlatform } = nodePlatformInternals;

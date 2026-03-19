@@ -214,7 +214,7 @@ function withTestPage(pageName: string, body: string): string {
 
 async function createSandboxHarness(
   manager: BrowserManager,
-  browserName: string,
+  browserName: string
 ): Promise<JsonSandboxHarness> {
   await manager.ensureBrowser(browserName, {
     headless: true,
@@ -445,9 +445,10 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
         innerText: string;
         kind: string | null;
         href: string | null;
-      }>(withTestPage(
-        "content-reading",
-        `
+      }>(
+        withTestPage(
+          "content-reading",
+          `
           const content = await page.content();
           console.log(JSON.stringify({
             title: await page.title(),
@@ -459,8 +460,9 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
             kind: await page.getAttribute("#text", "data-kind"),
             href: await page.getAttribute("#link", "href"),
           }));
-        `,
-      ));
+        `
+        )
+      );
 
       expect(result.title).toBe("Test Page");
       expect(result.contentHasTitle).toBe(true);
@@ -478,9 +480,10 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
         sum: number;
         upperText: string;
         listItems: string[];
-      }>(withTestPage(
-        "evaluation-methods",
-        `
+      }>(
+        withTestPage(
+          "evaluation-methods",
+          `
           const pageTitle = await page.evaluate(() => document.title);
           const sum = await page.evaluate((values) => values.left + values.right, {
             left: 2,
@@ -498,8 +501,9 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
             upperText,
             listItems,
           }));
-        `,
-      ));
+        `
+        )
+      );
 
       expect(result.pageTitle).toBe("Test Page");
       expect(result.sum).toBe(5);
@@ -533,9 +537,10 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
         checkedAfterUncheck: boolean;
         selectedValues: string[];
         selectedValue: string;
-      }>(withTestPage(
-        "form-interaction",
-        `
+      }>(
+        withTestPage(
+          "form-interaction",
+          `
           await page.fill("#bio", "QuickJS bio");
           await page.type("#name", "Ada");
           const name = await page.inputValue("#name");
@@ -563,8 +568,9 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
             selectedValues,
             selectedValue,
           }));
-        `,
-      ));
+        `
+        )
+      );
 
       expect(result.bio).toBe("QuickJS bio");
       expect(result.name).toBe("Ada");
@@ -584,9 +590,10 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
         waitTargetText: string | null;
         transientHidden: boolean;
         readyValue: string;
-      }>(withTestPage(
-        "wait-methods",
-        `
+      }>(
+        withTestPage(
+          "wait-methods",
+          `
           const start = Date.now();
           await page.waitForTimeout(40);
           const timeoutElapsed = Date.now() - start;
@@ -601,8 +608,9 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
             transientHidden: await page.isHidden("#transient"),
             readyValue,
           }));
-        `,
-      ));
+        `
+        )
+      );
 
       expect(result.timeoutElapsed).toBeGreaterThanOrEqual(20);
       expect(result.waitTargetText).toBe("Loaded later");
@@ -638,9 +646,10 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
         last: string | null;
         second: string | null;
         clickResult: string | null;
-      }>(withTestPage(
-        "locator-basics",
-        `
+      }>(
+        withTestPage(
+          "locator-basics",
+          `
           await page.locator("#name").fill("Grace");
           await page.locator("#submit").click();
           console.log(JSON.stringify({
@@ -657,8 +666,9 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
             second: await page.locator("#list li").nth(1).textContent(),
             clickResult: await page.locator("#result").textContent(),
           }));
-        `,
-      ));
+        `
+        )
+      );
 
       expect(result.textContent).toBe("Some text");
       expect(result.innerText).toBe("Some text");
@@ -680,9 +690,10 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
         betaChild: string | null;
         nestedChild: string | null;
         items: string[];
-      }>(withTestPage(
-        "locator-advanced",
-        `
+      }>(
+        withTestPage(
+          "locator-advanced",
+          `
           const betaCard = page.locator(".card").filter({ hasText: "Beta" });
           const items = [];
           for (const item of await page.locator("#list li").all()) {
@@ -694,8 +705,9 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
             nestedChild: await page.locator(".parent").locator(".child").textContent(),
             items,
           }));
-        `,
-      ));
+        `
+        )
+      );
 
       expect(result.betaLabel).toBe("Beta");
       expect(result.betaChild).toBe("Child B");
@@ -721,17 +733,19 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
       const result = await harness.runJson<{
         screenshotLength: number;
         fullPageLength: number;
-      }>(withTestPage(
-        "screenshots",
-        `
+      }>(
+        withTestPage(
+          "screenshots",
+          `
           const screenshot = await page.screenshot();
           const fullPage = await page.screenshot({ fullPage: true });
           console.log(JSON.stringify({
             screenshotLength: screenshot.length,
             fullPageLength: fullPage.length,
           }));
-        `,
-      ));
+        `
+        )
+      );
 
       expect(result.screenshotLength).toBeGreaterThan(0);
       expect(result.fullPageLength).toBeGreaterThan(0);
@@ -742,9 +756,10 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
         typedValue: string;
         enterResult: string | null;
         mouseResult: string | null;
-      }>(withTestPage(
-        "input-devices",
-        `
+      }>(
+        withTestPage(
+          "input-devices",
+          `
           await page.click("#name");
           await page.keyboard.type("hello");
           await page.keyboard.press("Enter");
@@ -755,8 +770,9 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
             enterResult,
             mouseResult: await page.getAttribute("#result", "data-mouse"),
           }));
-        `,
-      ));
+        `
+        )
+      );
 
       expect(result.typedValue).toBe("hello");
       expect(result.enterResult).toBe("enter:hello");
@@ -780,9 +796,10 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
     it("supports page.on('console')", async () => {
       const result = await harness.runJson<{
         messages: Array<{ type: string; text: string }>;
-      }>(withTestPage(
-        "console-events",
-        `
+      }>(
+        withTestPage(
+          "console-events",
+          `
           const messages = [];
           page.on("console", (message) => {
             messages.push({
@@ -795,8 +812,9 @@ describe.sequential("QuickJS Playwright Page API coverage", () => {
           });
           await page.waitForTimeout(50);
           console.log(JSON.stringify({ messages }));
-        `,
-      ));
+        `
+        )
+      );
 
       expect(result.messages).toEqual([
         {

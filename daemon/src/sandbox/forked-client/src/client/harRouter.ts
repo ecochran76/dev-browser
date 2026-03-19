@@ -1,6 +1,6 @@
 // @ts-nocheck
 function unsupported() {
-  throw new Error('HAR routing is not available in the QuickJS sandbox');
+  throw new Error("HAR routing is not available in the QuickJS sandbox");
 }
 
 export class HarRouter {

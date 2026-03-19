@@ -72,7 +72,7 @@ async function assertControlledDirectory(directoryPath: string, label: string): 
 async function assertSafeParentDirectories(
   rootDir: string,
   destinationPath: string,
-  createParents: boolean,
+  createParents: boolean
 ): Promise<void> {
   const relativeParent = path.relative(rootDir, path.dirname(destinationPath));
   if (relativeParent.length === 0) {
@@ -133,7 +133,7 @@ export async function resolveDevBrowserTempPath(
   fileName: unknown,
   options: {
     createParents?: boolean;
-  } = {},
+  } = {}
 ): Promise<string> {
   const rootDir = await ensureDevBrowserTempDir();
   const segments = sanitizeRelativePath(fileName);
@@ -149,7 +149,7 @@ export async function resolveDevBrowserTempPath(
 
 export async function writeDevBrowserTempFile(
   fileName: unknown,
-  data: string | Uint8Array,
+  data: string | Uint8Array
 ): Promise<string> {
   const destinationPath = await resolveDevBrowserTempPath(fileName, {
     createParents: true,
@@ -160,7 +160,7 @@ export async function writeDevBrowserTempFile(
     handle = await open(
       destinationPath,
       constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | NOFOLLOW_FLAG,
-      0o600,
+      0o600
     );
     await handle.writeFile(data);
   } catch (error) {

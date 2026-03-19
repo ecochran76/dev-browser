@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { ChannelOwner } from './channelOwner';
+import { ChannelOwner } from "./channelOwner";
 
 export class Artifact extends ChannelOwner {
   static from(channel) {
@@ -7,11 +7,11 @@ export class Artifact extends ChannelOwner {
   }
 
   async pathAfterFinished() {
-    throw new Error('Artifacts are not available in the QuickJS sandbox');
+    throw new Error("Artifacts are not available in the QuickJS sandbox");
   }
 
   async saveAs() {
-    throw new Error('Artifacts are not available in the QuickJS sandbox');
+    throw new Error("Artifacts are not available in the QuickJS sandbox");
   }
 
   async failure() {
@@ -19,11 +19,11 @@ export class Artifact extends ChannelOwner {
   }
 
   async createReadStream() {
-    throw new Error('Artifacts are not available in the QuickJS sandbox');
+    throw new Error("Artifacts are not available in the QuickJS sandbox");
   }
 
   async readIntoBuffer() {
-    throw new Error('Artifacts are not available in the QuickJS sandbox');
+    throw new Error("Artifacts are not available in the QuickJS sandbox");
   }
 
   async cancel() {

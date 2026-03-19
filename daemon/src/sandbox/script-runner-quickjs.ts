@@ -11,7 +11,7 @@ export async function runScript(
   manager: BrowserManager,
   browserName: string,
   output: ScriptOutput,
-  options: { timeout?: number; memoryLimitBytes?: number } = {},
+  options: { timeout?: number; memoryLimitBytes?: number } = {}
 ): Promise<void> {
   const sandbox = new QuickJSSandbox({
     manager,

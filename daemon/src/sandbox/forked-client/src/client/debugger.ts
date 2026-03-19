@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-import { ChannelOwner } from './channelOwner';
-import { Events } from './events';
+import { ChannelOwner } from "./channelOwner";
+import { Events } from "./events";
 
-import type * as api from '../../types/types';
-import type * as channels from '../protocol/channels';
+import type * as api from "../../types/types";
+import type * as channels from "../protocol/channels";
 
-type PausedDetail = { location: { file: string, line?: number, column?: number }, title: string };
+type PausedDetail = { location: { file: string; line?: number; column?: number }; title: string };
 
 export class Debugger extends ChannelOwner<channels.DebuggerChannel> implements api.Debugger {
   private _pausedDetails: PausedDetail[] = [];
@@ -30,9 +30,14 @@ export class Debugger extends ChannelOwner<channels.DebuggerChannel> implements 
     return (channel as any)._object;
   }
 
-  constructor(parent: ChannelOwner, type: string, guid: string, initializer: channels.DebuggerInitializer) {
+  constructor(
+    parent: ChannelOwner,
+    type: string,
+    guid: string,
+    initializer: channels.DebuggerInitializer
+  ) {
     super(parent, type, guid, initializer);
-    this._channel.on('pausedStateChanged', ({ pausedDetails }) => {
+    this._channel.on("pausedStateChanged", ({ pausedDetails }) => {
       this._pausedDetails = pausedDetails;
       this.emit(Events.Debugger.PausedStateChanged);
     });
@@ -50,7 +55,7 @@ export class Debugger extends ChannelOwner<channels.DebuggerChannel> implements 
     await this._channel.next();
   }
 
-  async runTo(location: { file: string, line?: number, column?: number }): Promise<void> {
+  async runTo(location: { file: string; line?: number; column?: number }): Promise<void> {
     await this._channel.runTo({ location });
   }
 

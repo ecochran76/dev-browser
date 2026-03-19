@@ -41,17 +41,14 @@ export class HostBridge {
     this.dispatcherConnection.onmessage = (message) => {
       this.sendToSandbox(JSON.stringify(message));
     };
-    this.rootDispatcher = new RootDispatcher(
-      this.dispatcherConnection,
-      async (rootScope) => {
-        this.playwrightDispatcher = new PlaywrightDispatcher(rootScope, this.playwright, {
-          preLaunchedBrowser: this.options.preLaunchedBrowser,
-          sharedBrowser: this.options.sharedBrowser,
-          denyLaunch: this.options.denyLaunch,
-        });
-        return this.playwrightDispatcher;
-      }
-    );
+    this.rootDispatcher = new RootDispatcher(this.dispatcherConnection, async (rootScope) => {
+      this.playwrightDispatcher = new PlaywrightDispatcher(rootScope, this.playwright, {
+        preLaunchedBrowser: this.options.preLaunchedBrowser,
+        sharedBrowser: this.options.sharedBrowser,
+        denyLaunch: this.options.denyLaunch,
+      });
+      return this.playwrightDispatcher;
+    });
   }
 
   async receiveFromSandbox(json: string): Promise<void> {

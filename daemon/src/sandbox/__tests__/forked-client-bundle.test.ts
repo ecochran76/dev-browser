@@ -42,7 +42,7 @@ describe("forked Playwright bundle", () => {
     expect(() =>
       host.executeScriptSync(bundleCode, {
         filename: "sandbox-client.js",
-      }),
+      })
     ).not.toThrow();
 
     expect(host.executeScriptSync("typeof __PlaywrightClient.Connection")).toBe("function");
@@ -51,7 +51,7 @@ describe("forked Playwright bundle", () => {
     expect(() =>
       host.executeScriptSync(`
         globalThis.__sandboxConnection = new __PlaywrightClient.Connection();
-      `),
+      `)
     ).not.toThrow();
 
     expect(host.executeScriptSync("typeof __sandboxConnection.dispatch")).toBe("function");

@@ -133,7 +133,7 @@ export class QuickJSHost {
       }
 
       const result = this.#runWithCpuLimit(() =>
-        this.#context.callFunction(functionHandle, this.#context.global, ...argHandles),
+        this.#context.callFunction(functionHandle, this.#context.global, ...argHandles)
       );
       const resultHandle = this.#unwrapResult(result, `QuickJS function "${name}" failed`);
       return await this.#consumeHandle(resultHandle);
@@ -243,7 +243,7 @@ export class QuickJSHost {
 
           try {
             const result = this.#runWithCpuLimit(() =>
-              this.#context.callFunction(record.callback, this.#context.undefined, ...record.args),
+              this.#context.callFunction(record.callback, this.#context.undefined, ...record.args)
             );
 
             if (result.error) {
@@ -261,7 +261,7 @@ export class QuickJSHost {
 
         this.#timers.set(timerId, { callback, args, timeout });
         return this.#context.newNumber(timerId);
-      },
+      }
     );
 
     const clearTimeoutHandle = this.#context.newFunction("clearTimeout", (timerIdHandle) => {
@@ -315,7 +315,8 @@ export class QuickJSHost {
           return;
         }
 
-        const valueHandle = value === undefined ? undefined : this.#toHandle(value as QuickJSHostValue);
+        const valueHandle =
+          value === undefined ? undefined : this.#toHandle(value as QuickJSHostValue);
         try {
           deferred.resolve(valueHandle);
         } finally {
@@ -348,7 +349,7 @@ export class QuickJSHost {
     const result = this.#runWithCpuLimit(() =>
       this.#context.evalCode(code, options.filename ?? "sandbox.js", {
         type: options.type,
-      }),
+      })
     );
 
     return this.#unwrapResult(result, "QuickJS evaluation failed");
@@ -453,7 +454,7 @@ export class QuickJSHost {
 
   #unwrapResult<T extends QuickJSHandle>(
     result: { value?: T; error?: QuickJSHandle },
-    prefix: string,
+    prefix: string
   ): T {
     if (result.error) {
       const error = this.#toError(prefix, result.error);
@@ -537,7 +538,9 @@ export class QuickJSHost {
       }
       return parsed;
     } catch (error) {
-      throw new Error(`Invalid JSON arguments for host call "${name}": ${this.#normalizeHostError(error).message}`);
+      throw new Error(
+        `Invalid JSON arguments for host call "${name}": ${this.#normalizeHostError(error).message}`
+      );
     }
   }
 

@@ -68,15 +68,16 @@ export class BrowserManager {
 
   constructor(
     baseDir = path.join(os.homedir(), ".dev-browser", "browsers"),
-    dependencies: Partial<BrowserManagerDependencies> = {},
+    dependencies: Partial<BrowserManagerDependencies> = {}
   ) {
     this.baseDir = baseDir;
     this.dependencies = {
       connectOverCDP: chromium.connectOverCDP.bind(chromium) as typeof chromium.connectOverCDP,
       fetch: globalThis.fetch,
       homedir: os.homedir,
-      launchPersistentContext:
-        chromium.launchPersistentContext.bind(chromium) as typeof chromium.launchPersistentContext,
+      launchPersistentContext: chromium.launchPersistentContext.bind(
+        chromium
+      ) as typeof chromium.launchPersistentContext,
       mkdir,
       platform: process.platform,
       readFile,
@@ -473,14 +474,21 @@ export class BrowserManager {
     switch (this.dependencies.platform) {
       case "darwin":
         return [
-          path.join(homeDir, "Library", "Application Support", "Google", "Chrome", "DevToolsActivePort"),
+          path.join(
+            homeDir,
+            "Library",
+            "Application Support",
+            "Google",
+            "Chrome",
+            "DevToolsActivePort"
+          ),
           path.join(
             homeDir,
             "Library",
             "Application Support",
             "Google",
             "Chrome Canary",
-            "DevToolsActivePort",
+            "DevToolsActivePort"
           ),
           path.join(homeDir, "Library", "Application Support", "Chromium", "DevToolsActivePort"),
           path.join(
@@ -489,7 +497,7 @@ export class BrowserManager {
             "Application Support",
             "BraveSoftware",
             "Brave-Browser",
-            "DevToolsActivePort",
+            "DevToolsActivePort"
           ),
         ];
       case "linux":
@@ -516,7 +524,10 @@ export class BrowserManager {
     }
 
     if (isHttpEndpoint(endpoint)) {
-      const discoveredEndpoint = await this.resolveHttpEndpoint(endpoint, MANUAL_CONNECT_TIMEOUT_MS);
+      const discoveredEndpoint = await this.resolveHttpEndpoint(
+        endpoint,
+        MANUAL_CONNECT_TIMEOUT_MS
+      );
 
       if (!discoveredEndpoint) {
         throw new Error(this.buildManualConnectError(endpoint));
@@ -530,7 +541,7 @@ export class BrowserManager {
 
   private async fetchDebuggerWebSocketUrl(
     endpoint: string,
-    timeoutMs: number,
+    timeoutMs: number
   ): Promise<DebuggerWebSocketLookupResult> {
     let response: Response;
 

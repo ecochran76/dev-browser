@@ -133,18 +133,22 @@ type BrowserManagerInternals = {
 };
 
 function createEnoentError(filePath: string): NodeJS.ErrnoException {
-  const error = new Error(`ENOENT: no such file or directory, open '${filePath}'`) as NodeJS.ErrnoException;
+  const error = new Error(
+    `ENOENT: no such file or directory, open '${filePath}'`
+  ) as NodeJS.ErrnoException;
   error.code = "ENOENT";
   return error;
 }
 
-function createManager(options: {
-  connectOverCDP?: ReturnType<typeof vi.fn>;
-  fetch?: typeof globalThis.fetch;
-  homedir?: () => string;
-  platform?: NodeJS.Platform;
-  readFile?: ReturnType<typeof vi.fn>;
-} = {}) {
+function createManager(
+  options: {
+    connectOverCDP?: ReturnType<typeof vi.fn>;
+    fetch?: typeof globalThis.fetch;
+    homedir?: () => string;
+    platform?: NodeJS.Platform;
+    readFile?: ReturnType<typeof vi.fn>;
+  } = {}
+) {
   const connectOverCDP = options.connectOverCDP ?? vi.fn();
   const fetch =
     options.fetch ??
@@ -192,7 +196,7 @@ describe("BrowserManager auto-connect", () => {
       "Application Support",
       "Google",
       "Chrome",
-      "DevToolsActivePort",
+      "DevToolsActivePort"
     );
     const websocketUrl = "ws://127.0.0.1:9333/devtools/browser/from-port-file";
     const readFile = vi.fn(async (filePath: string) => {
@@ -224,7 +228,7 @@ describe("BrowserManager auto-connect", () => {
       "Application Support",
       "Google",
       "Chrome",
-      "DevToolsActivePort",
+      "DevToolsActivePort"
     );
     const readFile = vi.fn(async (filePath: string) => {
       if (filePath === malformedPath) {
@@ -249,7 +253,7 @@ describe("BrowserManager auto-connect", () => {
       "Application Support",
       "Google",
       "Chrome",
-      "DevToolsActivePort",
+      "DevToolsActivePort"
     );
     const requests: string[] = [];
     const websocketUrl = "ws://127.0.0.1:9555/devtools/browser/from-discovery";
@@ -334,7 +338,7 @@ describe("BrowserManager auto-connect", () => {
           headers: {
             "content-type": "application/json",
           },
-        },
+        }
       );
     }) as typeof globalThis.fetch;
     const { manager } = createManager({
@@ -346,7 +350,7 @@ describe("BrowserManager auto-connect", () => {
     const namedPage = await manager.getPage("attached", "dashboard");
 
     expect(connectOverCDP).toHaveBeenCalledWith(
-      "ws://127.0.0.1:9222/devtools/browser/connected-browser",
+      "ws://127.0.0.1:9222/devtools/browser/connected-browser"
     );
     expect(namedPage).not.toBe(existingPage);
     expect(context.newPageCalls).toBe(1);
@@ -383,7 +387,7 @@ describe("BrowserManager auto-connect", () => {
 
     await manager.connectBrowser(
       "attached",
-      "ws://127.0.0.1:9222/devtools/browser/external-session",
+      "ws://127.0.0.1:9222/devtools/browser/external-session"
     );
 
     const entry = manager.getBrowser("attached");
@@ -408,7 +412,7 @@ describe("BrowserManager auto-connect", () => {
       "Application Support",
       "Google",
       "Chrome",
-      "DevToolsActivePort",
+      "DevToolsActivePort"
     );
     const browser = new MockBrowser([new MockContext()]);
     const connectOverCDP = vi.fn(async () => browser);
@@ -433,7 +437,7 @@ describe("BrowserManager auto-connect", () => {
     await manager.connectBrowser("attached", "http://127.0.0.1:9222");
 
     expect(connectOverCDP).toHaveBeenCalledWith(
-      "ws://127.0.0.1:9222/devtools/browser/from-active-port",
+      "ws://127.0.0.1:9222/devtools/browser/from-active-port"
     );
   });
 
@@ -446,7 +450,9 @@ describe("BrowserManager auto-connect", () => {
 
       throw createEnoentError(filePath);
     });
-    const fetch = vi.fn(async () => new Response("not found", { status: 404 })) as typeof globalThis.fetch;
+    const fetch = vi.fn(
+      async () => new Response("not found", { status: 404 })
+    ) as typeof globalThis.fetch;
     const { manager } = createManager({
       fetch,
       homedir: () => homeDir,
@@ -475,7 +481,7 @@ describe("BrowserManager auto-connect", () => {
 
     await manager.connectBrowser(
       "attached",
-      "ws://127.0.0.1:9222/devtools/browser/external-session",
+      "ws://127.0.0.1:9222/devtools/browser/external-session"
     );
     await manager.stopAll();
 
@@ -502,7 +508,7 @@ describe("BrowserManager auto-connect", () => {
             headers: {
               "content-type": "application/json",
             },
-          },
+          }
         );
       }
 
@@ -542,7 +548,7 @@ describe("BrowserManager auto-connect", () => {
       "Application Support",
       "Google",
       "Chrome",
-      "DevToolsActivePort",
+      "DevToolsActivePort"
     );
     const staleEndpoint = "ws://127.0.0.1:9222/devtools/browser/from-active-port";
     const discoveredEndpoint = "ws://127.0.0.1:9223/devtools/browser/discovered";
@@ -573,7 +579,7 @@ describe("BrowserManager auto-connect", () => {
             headers: {
               "content-type": "application/json",
             },
-          },
+          }
         );
       }
 
@@ -616,14 +622,12 @@ describe("BrowserManager auto-connect", () => {
       readFile,
     });
 
-    await expect(manager.autoConnect("missing")).rejects.toThrowError(
-      /remote-debugging-port=9222/,
-    );
+    await expect(manager.autoConnect("missing")).rejects.toThrowError(/remote-debugging-port=9222/);
   });
 });
 
 describe("protocol execute request", () => {
-  it("accepts connect=\"auto\" and explicit CDP URLs", () => {
+  it('accepts connect="auto" and explicit CDP URLs', () => {
     const autoResult = parseRequest(
       JSON.stringify({
         id: "req-auto",
@@ -631,7 +635,7 @@ describe("protocol execute request", () => {
         browser: "default",
         script: 'console.log("hi")',
         connect: "auto",
-      }),
+      })
     );
     const manualResult = parseRequest(
       JSON.stringify({
@@ -640,7 +644,7 @@ describe("protocol execute request", () => {
         browser: "default",
         script: 'console.log("hi")',
         connect: "http://127.0.0.1:9222",
-      }),
+      })
     );
 
     expect(autoResult).toEqual({

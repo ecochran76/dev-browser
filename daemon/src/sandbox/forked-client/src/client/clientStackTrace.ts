@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
-import { captureRawStack, parseStackFrame } from '../utils/isomorphic/stackTrace';
+import { captureRawStack, parseStackFrame } from "../utils/isomorphic/stackTrace";
 
-import type { Platform } from './platform';
-import type { StackFrame } from '@isomorphic/stackTrace';
+import type { Platform } from "./platform";
+import type { StackFrame } from "@isomorphic/stackTrace";
 
-export function captureLibraryStackTrace(platform: Platform): { frames: StackFrame[], apiName: string } {
+export function captureLibraryStackTrace(platform: Platform): {
+  frames: StackFrame[];
+  apiName: string;
+} {
   const stack = captureRawStack();
 
   type ParsedFrame = {
@@ -28,20 +31,25 @@ export function captureLibraryStackTrace(platform: Platform): { frames: StackFra
     frameText: string;
     isPlaywrightLibrary: boolean;
   };
-  let parsedFrames = stack.map(line => {
-    const frame = parseStackFrame(line, platform.pathSeparator, platform.showInternalStackFrames());
-    if (!frame || !frame.file)
-      return null;
-    const isPlaywrightLibrary = !!platform.coreDir && frame.file.startsWith(platform.coreDir);
-    const parsed: ParsedFrame = {
-      frame,
-      frameText: line,
-      isPlaywrightLibrary
-    };
-    return parsed;
-  }).filter(Boolean) as ParsedFrame[];
+  let parsedFrames = stack
+    .map((line) => {
+      const frame = parseStackFrame(
+        line,
+        platform.pathSeparator,
+        platform.showInternalStackFrames()
+      );
+      if (!frame || !frame.file) return null;
+      const isPlaywrightLibrary = !!platform.coreDir && frame.file.startsWith(platform.coreDir);
+      const parsed: ParsedFrame = {
+        frame,
+        frameText: line,
+        isPlaywrightLibrary,
+      };
+      return parsed;
+    })
+    .filter(Boolean) as ParsedFrame[];
 
-  let apiName = '';
+  let apiName = "";
 
   // Deepest transition between non-client code calling into client
   // code is the api entry.
@@ -54,24 +62,21 @@ export function captureLibraryStackTrace(platform: Platform): { frames: StackFra
   }
 
   function normalizeAPIName(name?: string): string {
-    if (!name)
-      return '';
+    if (!name) return "";
     const match = name.match(/(API|JS|CDP|[A-Z])(.*)/);
-    if (!match)
-      return name;
+    if (!match) return name;
     return match[1].toLowerCase() + match[2];
   }
 
   // This is for the inspector so that it did not include the test runner stack frames.
   const filterPrefixes = platform.boxedStackPrefixes();
-  parsedFrames = parsedFrames.filter(f => {
-    if (filterPrefixes.some(prefix => f.frame.file.startsWith(prefix)))
-      return false;
+  parsedFrames = parsedFrames.filter((f) => {
+    if (filterPrefixes.some((prefix) => f.frame.file.startsWith(prefix))) return false;
     return true;
   });
 
   return {
-    frames: parsedFrames.map(p => p.frame),
-    apiName
+    frames: parsedFrames.map((p) => p.frame),
+    apiName,
   };
 }

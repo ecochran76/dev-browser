@@ -79,7 +79,7 @@ describe.sequential("QuickJS sandbox integration", () => {
       output.sink,
       {
         timeout: 60_000,
-      },
+      }
     );
 
     expect(output.stdout.join("")).toContain("Example Domain");
@@ -100,7 +100,7 @@ describe.sequential("QuickJS sandbox integration", () => {
       output.sink,
       {
         timeout: 60_000,
-      },
+      }
     );
 
     expect(output.stdout.join("")).toContain("Example Domain");
@@ -120,7 +120,7 @@ describe.sequential("QuickJS sandbox integration", () => {
       output.sink,
       {
         timeout: 60_000,
-      },
+      }
     );
 
     expect(output.stdout.join("")).toContain("Example Domain");
@@ -136,8 +136,8 @@ describe.sequential("QuickJS sandbox integration", () => {
         `,
         manager,
         "default",
-        output.sink,
-      ),
+        output.sink
+      )
     ).rejects.toThrow("boom");
   });
 
@@ -154,8 +154,8 @@ describe.sequential("QuickJS sandbox integration", () => {
         output.sink,
         {
           timeout: 25,
-        },
-      ),
+        }
+      )
     ).rejects.toThrow(/timed out|interrupted/i);
   }, 120_000);
 
@@ -168,7 +168,7 @@ describe.sequential("QuickJS sandbox integration", () => {
       `,
       manager,
       "default",
-      output.sink,
+      output.sink
     );
 
     expect(output.stdout.join("")).toContain("sandbox 42 { ok: true }");

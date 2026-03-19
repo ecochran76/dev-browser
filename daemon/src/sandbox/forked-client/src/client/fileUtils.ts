@@ -5,7 +5,7 @@ export async function mkdirIfNeeded() {}
 
 export async function writeTempFile(path, data) {
   const writer = globalThis.writeFile;
-  if (typeof writer !== 'function')
-    throw new Error('writeFile() is not available in the QuickJS sandbox');
+  if (typeof writer !== "function")
+    throw new Error("writeFile() is not available in the QuickJS sandbox");
   return await writer(path, data);
 }

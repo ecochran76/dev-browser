@@ -5,7 +5,7 @@ export class Screencast {
   }
 
   async start() {
-    throw new Error('Screencast is not available in the QuickJS sandbox');
+    throw new Error("Screencast is not available in the QuickJS sandbox");
   }
 
   async stop() {}

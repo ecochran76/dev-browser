@@ -5,7 +5,7 @@ import { QuickJSHost } from "../quickjs-host.js";
 const hosts = new Set<QuickJSHost>();
 
 async function createHost(
-  options: Parameters<typeof QuickJSHost.create>[0] = {},
+  options: Parameters<typeof QuickJSHost.create>[0] = {}
 ): Promise<QuickJSHost> {
   const host = await QuickJSHost.create(options);
   hosts.add(host);
@@ -44,7 +44,7 @@ describe("QuickJSHost", () => {
 
     expect(host.executeScriptSync('__hostCall("add", JSON.stringify([4, 5]))')).toBe(9);
     expect(
-      host.executeScriptSync('__transport_send(JSON.stringify({ type: "ping", id: 1 }))'),
+      host.executeScriptSync('__transport_send(JSON.stringify({ type: "ping", id: 1 }))')
     ).toBeUndefined();
     expect(sentMessages).toEqual(['{"type":"ping","id":1}']);
   });
@@ -64,7 +64,7 @@ describe("QuickJSHost", () => {
         (async () => {
           return await __hostCall("addAsync", JSON.stringify([7, 8]));
         })()
-      `),
+      `)
     ).resolves.toBe(15);
   });
 
@@ -79,7 +79,7 @@ describe("QuickJSHost", () => {
     `);
 
     await expect(host.callFunction("__transport_receive", "hello from host")).resolves.toBe(
-      "HELLO FROM HOST",
+      "HELLO FROM HOST"
     );
     expect(host.executeScriptSync("lastMessage")).toBe("hello from host");
   });
@@ -100,7 +100,7 @@ describe("QuickJSHost", () => {
             setTimeout(() => resolve(fired ? "wrong" : "done"), 5);
           });
         })()
-      `),
+      `)
     ).resolves.toBe("done");
   });
 
@@ -115,7 +115,7 @@ describe("QuickJSHost", () => {
         while (true) {
           chunks.push("x".repeat(1024));
         }
-      `),
+      `)
     ).rejects.toThrow(/out of memory/i);
   });
 

@@ -1,8 +1,8 @@
 // @ts-nocheck
-import { ChannelOwner } from './channelOwner';
+import { ChannelOwner } from "./channelOwner";
 
 function unsupported() {
-  throw new Error('LocalUtils is not available in the QuickJS sandbox');
+  throw new Error("LocalUtils is not available in the QuickJS sandbox");
 }
 
 export class LocalUtils extends ChannelOwner {

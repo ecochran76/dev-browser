@@ -59,7 +59,7 @@ describe.sequential("QuickJS sandbox security", () => {
 
   async function runSandboxScript(
     script: string,
-    options: { timeout?: number; memoryLimitBytes?: number } = {},
+    options: { timeout?: number; memoryLimitBytes?: number } = {}
   ): Promise<CapturedOutput> {
     const output = createOutput();
     await runScript(script, manager, browserName, output.sink, options);
@@ -69,11 +69,11 @@ describe.sequential("QuickJS sandbox security", () => {
   function expectSandboxScriptToThrow(
     script: string,
     matcher: RegExp,
-    options: { timeout?: number; memoryLimitBytes?: number } = {},
+    options: { timeout?: number; memoryLimitBytes?: number } = {}
   ): Promise<void> {
     const output = createOutput();
     return expect(runScript(script, manager, browserName, output.sink, options)).rejects.toThrow(
-      matcher,
+      matcher
     );
   }
 
@@ -92,14 +92,14 @@ describe.sequential("QuickJS sandbox security", () => {
   it("does not expose WebSocket", async () => {
     await expectSandboxScriptToThrow(
       `new WebSocket("wss://evil.example");`,
-      /WebSocket|not defined/i,
+      /WebSocket|not defined/i
     );
   });
 
   it("does not escape through the constructor chain", async () => {
     await expectSandboxScriptToThrow(
       `this.constructor.constructor("return process")();`,
-      /process|not defined/i,
+      /process|not defined/i
     );
   });
 
@@ -118,7 +118,7 @@ describe.sequential("QuickJS sandbox security", () => {
       /out of memory/i,
       {
         memoryLimitBytes: 1024 * 1024,
-      },
+      }
     );
   }, 120_000);
 
@@ -180,7 +180,7 @@ describe.sequential("QuickJS sandbox security", () => {
     try {
       await runScript(`console.log("secret");`, manager, browserName, output.sink);
       leakedToHostStdout = stdoutSpy.mock.calls.some((args) =>
-        args.some((value) => String(value).includes("secret")),
+        args.some((value) => String(value).includes("secret"))
       );
     } finally {
       stdoutSpy.mockRestore();

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { ChannelOwner } from './channelOwner';
+import { ChannelOwner } from "./channelOwner";
 
 export class WritableStream extends ChannelOwner {
   static from(channel) {
@@ -7,6 +7,6 @@ export class WritableStream extends ChannelOwner {
   }
 
   stream() {
-    throw new Error('Writable streams are not available in the QuickJS sandbox');
+    throw new Error("Writable streams are not available in the QuickJS sandbox");
   }
 }
