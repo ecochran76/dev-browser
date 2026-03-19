@@ -9,7 +9,7 @@
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
     "version:sync": "node scripts/sync-version.js",
-    "version": "npm run version:sync && git add cli/Cargo.toml cli/Cargo.lock"
+    "version": "npm run version:sync && git add cli/Cargo.toml cli/Cargo.lock .claude-plugin/marketplace.json"
   },
   "files": [
     "bin/",
