@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
 const cliDir = join(projectRoot, 'cli');
+const marketplaceJsonPath = join(projectRoot, '.claude-plugin', 'marketplace.json');
 const packageJson = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8'));
 const version = packageJson.version;
 const cargoTomlPath = join(cliDir, 'Cargo.toml');
@@ -45,4 +46,18 @@ if (!cargoToml.includes(versionLine)) {
   }
 } else {
   console.log(`cli/Cargo.toml already matches package.json version ${version}.`);
+}
+
+const marketplaceJson = JSON.parse(readFileSync(marketplaceJsonPath, 'utf8'));
+
+if (!marketplaceJson.metadata) {
+  marketplaceJson.metadata = {};
+}
+
+if (marketplaceJson.metadata.version !== version) {
+  marketplaceJson.metadata.version = version;
+  writeFileSync(marketplaceJsonPath, `${JSON.stringify(marketplaceJson, null, 2)}\n`);
+  console.log(`Updated .claude-plugin/marketplace.json to version ${version}.`);
+} else {
+  console.log(`.claude-plugin/marketplace.json already matches package.json version ${version}.`);
 }
