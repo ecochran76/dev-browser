@@ -124,6 +124,10 @@ const CLI_AFTER_LONG_HELP: &str = r####"LLM USAGE GUIDE:
     // Re-run page.snapshotForAI({ track: "main" }) after the page changes.
     EOF
 
+  Choosing your approach:
+    Unknown pages: use page.snapshotForAI() first to discover the page, then interact based on what you find.
+    Known pages/selectors: skip the snapshot and use direct Playwright selectors like page.click(), page.fill(), or page.locator() for faster, more reliable automation.
+
   Screenshots for visual state:
     dev-browser <<'EOF'
     const page = await browser.getPage("main");
