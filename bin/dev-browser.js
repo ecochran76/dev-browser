@@ -1,12 +1,22 @@
 #!/usr/bin/env node
 
 import { execSync, spawn } from 'child_process';
-import { accessSync, chmodSync, constants, existsSync } from 'fs';
+import { accessSync, chmodSync, constants, existsSync, readFileSync } from 'fs';
 import { arch, platform } from 'os';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const packageJson = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
+const version = packageJson.version;
+const repoSlug = 'SawyerHood/dev-browser';
+const supportedTargets = Object.freeze({
+  'darwin-arm64': 'dev-browser-darwin-arm64',
+  'darwin-x64': 'dev-browser-darwin-x64',
+  'linux-arm64': 'dev-browser-linux-arm64',
+  'linux-musl-x64': 'dev-browser-linux-musl-x64',
+  'linux-x64': 'dev-browser-linux-x64',
+});
 
 function isMusl() {
   if (platform() !== 'linux') {
@@ -30,41 +40,42 @@ function isMusl() {
   }
 }
 
+function getTargetKey() {
+  const currentPlatform = platform();
+  const currentArch = arch();
+
+  if (currentPlatform === 'darwin') {
+    if (currentArch === 'arm64' || currentArch === 'aarch64') {
+      return 'darwin-arm64';
+    }
+
+    if (currentArch === 'x64' || currentArch === 'x86_64') {
+      return 'darwin-x64';
+    }
+
+    return null;
+  }
+
+  if (currentPlatform === 'linux') {
+    if (currentArch === 'x64' || currentArch === 'x86_64') {
+      return isMusl() ? 'linux-musl-x64' : 'linux-x64';
+    }
+
+    if (currentArch === 'arm64' || currentArch === 'aarch64') {
+      return isMusl() ? null : 'linux-arm64';
+    }
+  }
+
+  return null;
+}
+
 function getBinaryName() {
-  const os = platform();
-  const cpuArch = arch();
+  const targetKey = getTargetKey();
+  return targetKey ? supportedTargets[targetKey] : null;
+}
 
-  let osKey;
-  switch (os) {
-    case 'darwin':
-      osKey = 'darwin';
-      break;
-    case 'linux':
-      osKey = isMusl() ? 'linux-musl' : 'linux';
-      break;
-    case 'win32':
-      osKey = 'win32';
-      break;
-    default:
-      return null;
-  }
-
-  let archKey;
-  switch (cpuArch) {
-    case 'x64':
-    case 'x86_64':
-      archKey = 'x64';
-      break;
-    case 'arm64':
-    case 'aarch64':
-      archKey = 'arm64';
-      break;
-    default:
-      return null;
-  }
-
-  const extension = os === 'win32' ? '.exe' : '';
-  return `dev-browser-${osKey}-${archKey}${extension}`;
+function getSupportedPlatformsText() {
+  return Object.keys(supportedTargets).join(', ');
 }
 
 function ensureExecutable(binaryPath) {
@@ -84,10 +95,12 @@ function main() {
 
   if (!binaryName) {
     console.error(`Error: Unsupported platform: ${platform()}-${arch()}`);
+    console.error(`Supported platforms: ${getSupportedPlatformsText()}`);
     process.exit(1);
   }
 
   const binaryPath = join(__dirname, binaryName);
+  const releaseAssetUrl = `https://github.com/${repoSlug}/releases/download/v${version}/${binaryName}`;
 
   if (!existsSync(binaryPath)) {
     console.error(`Error: Native binary not found for ${platform()}-${arch()}`);
@@ -96,6 +109,7 @@ function main() {
     console.error('The postinstall step downloads this binary from GitHub releases.');
     console.error('Reinstall the package to retry the download, or verify this release includes');
     console.error(`the asset "${binaryName}" for your platform.`);
+    console.error(`Expected release asset URL: ${releaseAssetUrl}`);
     process.exit(1);
   }
 

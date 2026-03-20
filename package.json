@@ -34,7 +34,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SawyerHood/dev-browser-new"
+    "url": "git+https://github.com/SawyerHood/dev-browser.git"
   },
   "author": "Sawyer Hood"
 }
