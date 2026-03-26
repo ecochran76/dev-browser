@@ -8,8 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.4] - 2026-03-26
 
 - Added `--ignore-https-errors` flag for self-signed certificates.
-- Dead code cleanup and renamed `CLAUDE.md` to `AGENTS.md`.
-- Fixed Windows CI test cleanup (`EBUSY` file locking).
 
 ## [0.2.3] - 2026-03-25
 
