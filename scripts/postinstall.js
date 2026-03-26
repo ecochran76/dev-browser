@@ -2,6 +2,7 @@
 
 import {
   chmodSync,
+  createReadStream,
   createWriteStream,
   existsSync,
   lstatSync,
@@ -13,6 +14,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'fs';
+import { createHash } from 'crypto';
 import { get } from 'https';
 import { arch, platform } from 'os';
 import { dirname, join } from 'path';
@@ -128,6 +130,7 @@ const binaryPath = binaryName ? join(binDir, binaryName) : null;
 const downloadUrl = binaryName
   ? `${releasesBaseUrl}/v${version}/${binaryName}`
   : null;
+const checksumsUrl = `${releasesBaseUrl}/v${version}/SHASUMS256.txt`;
 
 function getNpmGlobalPaths() {
   try {
@@ -259,6 +262,173 @@ async function downloadFile(url, destination) {
   });
 }
 
+async function downloadText(url) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const rejectOnce = (error) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      reject(error);
+    };
+
+    const resolveOnce = (value) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      resolve(value);
+    };
+
+    const request = (currentUrl, redirectsRemaining = 10) => {
+      const req = get(
+        currentUrl,
+        {
+          headers: {
+            Accept: 'text/plain',
+            'User-Agent': `${packageName}/${version}`,
+          },
+        },
+        (response) => {
+          if (
+            response.statusCode &&
+            response.statusCode >= 300 &&
+            response.statusCode < 400 &&
+            response.headers.location
+          ) {
+            if (redirectsRemaining === 0) {
+              response.resume();
+              rejectOnce(new Error(`Too many redirects while downloading ${url}`));
+              return;
+            }
+
+            response.resume();
+            request(new URL(response.headers.location, currentUrl), redirectsRemaining - 1);
+            return;
+          }
+
+          if (response.statusCode !== 200) {
+            response.resume();
+            rejectOnce(new Error(`HTTP ${response.statusCode ?? 'unknown'} from ${currentUrl}`));
+            return;
+          }
+
+          response.setEncoding('utf8');
+
+          const chunks = [];
+          response.on('data', (chunk) => {
+            chunks.push(chunk);
+          });
+          response.on('error', (error) => {
+            rejectOnce(new Error(`${currentUrl}: ${formatErrorMessage(error)}`));
+          });
+          response.on('aborted', () => {
+            rejectOnce(new Error(`Download aborted for ${currentUrl}`));
+          });
+          response.on('end', () => {
+            resolveOnce(chunks.join(''));
+          });
+        },
+      );
+
+      req.on('error', (error) => {
+        rejectOnce(new Error(`${currentUrl}: ${formatErrorMessage(error)}`));
+      });
+
+      req.setTimeout(30_000, () => {
+        req.destroy(new Error(`Request timed out after 30s for ${currentUrl}`));
+      });
+    };
+
+    request(url);
+  });
+}
+
+function parseChecksumsFile(contents) {
+  const hashes = new Map();
+
+  for (const line of contents.split(/\r?\n/)) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) {
+      continue;
+    }
+
+    const match = line.match(/^([a-fA-F0-9]{64})\s{2}(.+)$/);
+    if (!match) {
+      throw new Error(`Invalid checksum entry: ${line}`);
+    }
+
+    const [, hash, filename] = match;
+    hashes.set(filename, hash.toLowerCase());
+  }
+
+  return hashes;
+}
+
+async function computeFileSha256(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = createReadStream(filePath);
+
+    stream.on('data', (chunk) => {
+      hash.update(chunk);
+    });
+    stream.on('error', reject);
+    stream.on('end', () => {
+      resolve(hash.digest('hex'));
+    });
+  });
+}
+
+async function verifyBinaryChecksum(downloadedBinaryPath, downloadedBinaryName) {
+  let checksumsText;
+
+  try {
+    checksumsText = await downloadText(checksumsUrl);
+  } catch (error) {
+    console.warn(
+      `Warning: Could not download SHASUMS256.txt from ${checksumsUrl}: ${formatErrorMessage(error)}`,
+    );
+    console.warn('Continuing without checksum verification for this release.');
+    return;
+  }
+
+  try {
+    const checksums = parseChecksumsFile(checksumsText);
+    const expectedHash = checksums.get(downloadedBinaryName);
+
+    if (!expectedHash) {
+      throw new Error(`SHASUMS256.txt does not contain an entry for ${downloadedBinaryName}.`);
+    }
+
+    const actualHash = await computeFileSha256(downloadedBinaryPath);
+
+    if (actualHash !== expectedHash) {
+      throw new Error(
+        [
+          `Checksum mismatch for ${downloadedBinaryName}.`,
+          `Expected: ${expectedHash}`,
+          `Actual:   ${actualHash}`,
+        ].join('\n'),
+      );
+    }
+
+    console.log(`Verified SHA-256 checksum for ${downloadedBinaryName}.`);
+  } catch (error) {
+    rmSync(downloadedBinaryPath, { force: true });
+    throw new Error(
+      [
+        formatErrorMessage(error),
+        `Deleted ${downloadedBinaryName} due to failed checksum verification.`,
+      ].join('\n'),
+    );
+  }
+}
+
 function ensureExecutable(path) {
   if (platform() !== 'win32') {
     chmodSync(path, 0o755);
@@ -366,8 +536,6 @@ async function main() {
 
   try {
     await downloadFile(downloadUrl, binaryPath);
-    ensureExecutable(binaryPath);
-    console.log(`Downloaded native binary: ${binaryName}`);
   } catch (error) {
     failOrWarn(
       [
@@ -379,6 +547,10 @@ async function main() {
     );
     return;
   }
+
+  await verifyBinaryChecksum(binaryPath, binaryName);
+  ensureExecutable(binaryPath);
+  console.log(`Downloaded native binary: ${binaryName}`);
 
   await fixGlobalInstallBin();
   showInstallReminder();

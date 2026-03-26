@@ -107,6 +107,19 @@ jobs:
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          checksum_file="artifacts/SHASUMS256.txt"
+          rm -f "$checksum_file"
+
+          find artifacts -type f -name 'dev-browser-*' -print0 \
+            | sort -z \
+            | while IFS= read -r -d '' file; do
+              sha256sum "$file" | awk -v filename="$(basename "$file")" '{ print $1 "  " filename }' >> "$checksum_file"
+            done
+
+          test -s "$checksum_file"
       - run: cd daemon && pnpm install && pnpm run bundle && pnpm run bundle:sandbox-client
       - run: |
           mkdir -p dist/bin dist/scripts dist/daemon/dist
@@ -123,5 +136,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
+          files: |
+            artifacts/**/*
+            artifacts/SHASUMS256.txt
           generate_release_notes: true
