@@ -3,7 +3,6 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { BrowserManager } from "./browser-manager.js";
-import { createKeyedLock, createMutex } from "./lock.js";
 import {
   getBrowsersDir,
   getDaemonEndpoint,
@@ -34,8 +33,7 @@ const EMBEDDED_PACKAGE_JSON = JSON.stringify({
 
 const manager = new BrowserManager(BROWSERS_DIR);
 const startedAt = Date.now();
-const withBrowserLock = createKeyedLock<string>();
-const withInstallLock = createMutex();
+const browserLocks = new Map<string, Promise<void>>();
 const clients = new Set<net.Socket>();
 
 let server: net.Server | null = null;
@@ -112,6 +110,27 @@ async function closeClientSocket(socket: net.Socket): Promise<void> {
   });
 }
 
+async function withBrowserLock<T>(browserName: string, action: () => Promise<T>): Promise<T> {
+  const previous = browserLocks.get(browserName) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.catch(() => undefined).then(() => current);
+  browserLocks.set(browserName, tail);
+
+  await previous.catch(() => undefined);
+
+  try {
+    return await action();
+  } finally {
+    release();
+    if (browserLocks.get(browserName) === tail) {
+      browserLocks.delete(browserName);
+    }
+  }
+}
+
 function createMessageQueue(socket: net.Socket) {
   let queue = Promise.resolve();
 
@@ -185,35 +204,33 @@ async function handleExecute(socket: net.Socket, request: ExecuteRequest): Promi
 }
 
 async function handleInstall(socket: net.Socket, request: { id: string }): Promise<void> {
-  await withInstallLock(async () => {
-    const output = createMessageQueue(socket);
-    try {
-      await mkdir(BASE_DIR, { recursive: true });
-      await writeFile(path.join(BASE_DIR, "package.json"), EMBEDDED_PACKAGE_JSON);
-      const npmProgram = process.platform === "win32" ? "npm.cmd" : "npm";
-      await runInstallCommand(output, request.id, npmProgram, ["install"], BASE_DIR, "npm install");
-      await runInstallCommand(
-        output,
-        request.id,
-        npmProgram,
-        ["exec", "--", "playwright", "install", "chromium"],
-        BASE_DIR,
-        "Playwright install"
-      );
-      await writeMessage(socket, {
-        id: request.id,
-        type: "complete",
-        success: true,
-      });
-    } catch (error) {
-      await output.drain().catch(() => undefined);
-      await writeMessage(socket, {
-        id: request.id,
-        type: "error",
-        message: formatError(error),
-      });
-    }
-  });
+  const output = createMessageQueue(socket);
+  try {
+    await mkdir(BASE_DIR, { recursive: true });
+    await writeFile(path.join(BASE_DIR, "package.json"), EMBEDDED_PACKAGE_JSON);
+    const npmProgram = process.platform === "win32" ? "npm.cmd" : "npm";
+    await runInstallCommand(output, request.id, npmProgram, ["install"], BASE_DIR, "npm install");
+    await runInstallCommand(
+      output,
+      request.id,
+      npmProgram,
+      ["exec", "--", "playwright", "install", "chromium"],
+      BASE_DIR,
+      "Playwright install"
+    );
+    await writeMessage(socket, {
+      id: request.id,
+      type: "complete",
+      success: true,
+    });
+  } catch (error) {
+    await output.drain().catch(() => undefined);
+    await writeMessage(socket, {
+      id: request.id,
+      type: "error",
+      message: formatError(error),
+    });
+  }
 }
 
 async function runInstallCommand(
