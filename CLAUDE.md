@@ -1,102 +1,92 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This repository ships `dev-browser`: a Rust CLI plus a Node.js daemon for browser automation with a QuickJS sandbox. Use this file as the repo-specific guide when making code changes.
 
-## Build and Development Commands
+## Tooling
 
-Always use Node.js/npm instead of Bun.
+- Use Node.js tooling for `daemon/` and Cargo for `cli/`. Do not use Bun.
+- The daemon package uses `pnpm`.
+- The repo root contains packaging glue (`bin/`, `scripts/`, `README.md`), but most runtime behavior lives in `cli/` and `daemon/`.
+
+## Validation
+
+Run these before finishing changes that touch runtime code:
 
 ```bash
-# Install dependencies (from skills/dev-browser/ directory)
-cd skills/dev-browser && npm install
-
-# Start the dev-browser server
-cd skills/dev-browser && npm run start-server
-
-# Run dev mode with watch
-cd skills/dev-browser && npm run dev
-
-# Run tests (uses vitest)
-cd skills/dev-browser && npm test
-
-# Run TypeScript check
-cd skills/dev-browser && npx tsc --noEmit
+cd daemon && npx tsc --noEmit
+cd daemon && pnpm vitest run
+cd cli && cargo build
 ```
 
-## Important: Before Completing Code Changes
+If you change daemon runtime code that is embedded into the Rust binary, rebuild the bundles first:
 
-**Always run these checks before considering a task complete:**
-
-1. **TypeScript check**: `npx tsc --noEmit` - Ensure no type errors
-2. **Tests**: `npm test` - Ensure all tests pass
-
-Common TypeScript issues in this codebase:
-
-- Use `import type { ... }` for type-only imports (required by `verbatimModuleSyntax`)
-- Browser globals (`document`, `window`) in `page.evaluate()` callbacks need `declare const document: any;` since DOM lib is not included
-
-## Project Architecture
-
-### Overview
-
-This is a browser automation tool designed for developers and AI agents. It solves the problem of maintaining browser state across multiple script executions - unlike Playwright scripts that start fresh each time, dev-browser keeps pages alive and reusable.
-
-### Structure
-
-All source code lives in `skills/dev-browser/`:
-
-- `src/index.ts` - Server: launches persistent Chromium context, exposes HTTP API for page management
-- `src/client.ts` - Client: connects to server, retrieves pages by name via CDP
-- `src/types.ts` - Shared TypeScript types for API requests/responses
-- `src/dom/` - DOM tree extraction utilities for LLM-friendly page inspection
-- `scripts/start-server.ts` - Entry point to start the server
-- `tmp/` - Directory for temporary automation scripts
-
-### Path Aliases
-
-The project uses `@/` as a path alias to `./src/`. This is configured in both `package.json` (via `imports`) and `tsconfig.json` (via `paths`).
-
-```typescript
-// Import from src/client.ts
-import { connect } from "@/client.js";
-
-// Import from src/index.ts
-import { serve } from "@/index.js";
+```bash
+cd daemon && pnpm bundle
+cd daemon && pnpm bundle:sandbox-client
 ```
 
-### How It Works
+`cli/src/daemon.rs` embeds `daemon/dist/daemon.bundle.mjs` and `daemon/dist/sandbox-client.js` via `include_str!`, so `cargo build` only sees the latest daemon changes after those bundles are regenerated.
 
-1. **Server** (`serve()` in `src/index.ts`):
-   - Launches Chromium with `launchPersistentContext` (preserves cookies, localStorage)
-   - Exposes HTTP API on port 9222 for page management
-   - Exposes CDP WebSocket endpoint on port 9223
-   - Pages are registered by name and persist until explicitly closed
+## Current Architecture
 
-2. **Client** (`connect()` in `src/client.ts`):
-   - Connects to server's HTTP API
-   - Uses CDP `targetId` to reliably find pages across reconnections
-   - Returns standard Playwright `Page` objects for automation
+### High-level flow
 
-3. **Key API Endpoints**:
-   - `GET /` - Returns CDP WebSocket endpoint
-   - `GET /pages` - Lists all named pages
-   - `POST /pages` - Gets or creates a page by name (body: `{ name: string }`)
-   - `DELETE /pages/:name` - Closes a page
+1. `cli/src/main.rs` parses arguments, reads the script from stdin or a file, and sends a newline-delimited JSON request to the local daemon.
+2. `cli/src/daemon.rs` makes sure the embedded Node daemon is extracted under `~/.dev-browser/`, installs runtime dependencies when requested, and starts the daemon if it is not already running.
+3. `daemon/src/daemon.ts` listens on a Unix socket (`~/.dev-browser/daemon.sock` on Unix, named pipe on Windows), manages browser instances, and runs scripts one at a time per browser.
+4. `daemon/src/sandbox/quickjs-sandbox.ts` executes user scripts inside QuickJS, exposes the allowed globals, and bridges Playwright objects back into the sandbox.
 
-### Usage Pattern
+### Important modules
 
-```typescript
-import { connect } from "@/client.js";
+- `cli/src/main.rs`
+  CLI entrypoint, help text, request formatting, and output handling.
+- `cli/src/connection.rs`
+  Local transport to the daemon. Unix socket on Unix, local named pipe on Windows.
+- `cli/src/daemon.rs`
+  Embedded daemon extraction, `npm install` / Playwright install flow, and daemon process spawning.
+- `cli/llm-guide.txt`
+  Embedded long-form usage guide shown in `dev-browser --help`. Keep it aligned with CLI behavior.
+- `daemon/src/daemon.ts`
+  Node daemon entrypoint. Handles `execute`, `browsers`, `status`, `install`, and `stop` requests.
+- `daemon/src/protocol.ts`
+  Zod schemas and helpers for the newline-delimited JSON protocol between CLI and daemon.
+- `daemon/src/browser-manager.ts`
+  Launches persistent Chromium profiles, auto-connects to existing Chrome instances, and keeps named pages alive across script runs.
+- `daemon/src/sandbox/quickjs-sandbox.ts`
+  QuickJS host runtime. Loads the sandbox client bundle, wires `browser`, `console`, `saveScreenshot`, `writeFile`, and `readFile`, and enforces time/memory limits.
+- `daemon/src/sandbox/host-bridge.ts`
+  Exposes Playwright server-side objects to the sandbox bridge.
+- `daemon/src/sandbox/sandbox-transport.ts`
+  Creates the sandbox-side Playwright client connection.
+- `daemon/src/temp-files.ts`
+  Restricts file I/O to `~/.dev-browser/tmp/`.
 
-const client = await connect("http://localhost:9222");
-const page = await client.page("my-page"); // Gets existing or creates new
-await page.goto("https://example.com");
-// Page persists for future scripts
-await client.disconnect(); // Disconnects CDP but page stays alive on server
-```
+## Sandbox Model
 
-## Node.js Guidelines
+- User scripts run in QuickJS, not Node.js.
+- Do not assume `require`, `import`, `process`, `fs`, arbitrary network access, or other Node globals are available inside scripts.
+- The daemon injects a limited API:
+  - `browser.getPage(nameOrId)`
+  - `browser.newPage()`
+  - `browser.listPages()`
+  - `browser.closePage(name)`
+  - `console.log/info/warn/error`
+  - `saveScreenshot`, `writeFile`, `readFile`
+- Page objects exposed in the sandbox are bridged Playwright `Page` objects.
 
-- Use `npx tsx` for running TypeScript files
-- Use `dotenv` or similar if you need to load `.env` files
-- Use `node:fs` for file system operations
+## Repo-specific Notes
+
+- Named pages are persistent within a daemon-managed browser. Changes to page lifecycle usually belong in `daemon/src/browser-manager.ts`.
+- Auto-connect behavior for external Chrome instances also lives in `daemon/src/browser-manager.ts`. The probe flow uses DevTools discovery and ports `9222` through `9229`.
+- Generated daemon bundles are consumed by the CLI. If you change `daemon/src/**` or the sandbox client bundle inputs, verify whether `daemon/dist/*` must be updated too.
+- Runtime state lives under `~/.dev-browser/`:
+  - `daemon.sock` or the Windows pipe name for transport
+  - `daemon.pid` for the background process
+  - `browsers/` for persistent Chromium profiles
+  - `tmp/` for sandbox file I/O
+
+## Editing Guidance
+
+- Keep CLI help text, `README.md`, and `cli/llm-guide.txt` consistent when behavior or supported flags change.
+- Prefer updating the daemon protocol and CLI request handling together; they are tightly coupled.
+- When changing sandbox behavior, review both the host side (`daemon/src/sandbox/*.ts`) and the tests under `daemon/src/sandbox/__tests__/`.

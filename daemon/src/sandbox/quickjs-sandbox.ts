@@ -167,7 +167,7 @@ function decodeSandboxFilePayload(value: unknown, label: string): string | Uint8
   return Buffer.from(data, "base64");
 }
 
-export interface QuickJSSandboxOptions {
+interface QuickJSSandboxOptions {
   manager: BrowserManager;
   browserName: string;
   onStdout: (data: string) => void;

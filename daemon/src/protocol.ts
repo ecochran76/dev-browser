@@ -4,7 +4,7 @@ const RequestBaseSchema = z.object({
   id: z.string().min(1),
 });
 
-export const ExecuteRequestSchema = RequestBaseSchema.extend({
+const ExecuteRequestSchema = RequestBaseSchema.extend({
   type: z.literal("execute"),
   browser: z.string().min(1).default("default"),
   script: z.string(),
@@ -13,28 +13,28 @@ export const ExecuteRequestSchema = RequestBaseSchema.extend({
   timeoutMs: z.number().int().positive().optional(),
 });
 
-export const BrowsersRequestSchema = RequestBaseSchema.extend({
+const BrowsersRequestSchema = RequestBaseSchema.extend({
   type: z.literal("browsers"),
 });
 
-export const BrowserStopRequestSchema = RequestBaseSchema.extend({
+const BrowserStopRequestSchema = RequestBaseSchema.extend({
   type: z.literal("browser-stop"),
   browser: z.string().min(1),
 });
 
-export const StatusRequestSchema = RequestBaseSchema.extend({
+const StatusRequestSchema = RequestBaseSchema.extend({
   type: z.literal("status"),
 });
 
-export const InstallRequestSchema = RequestBaseSchema.extend({
+const InstallRequestSchema = RequestBaseSchema.extend({
   type: z.literal("install"),
 });
 
-export const StopRequestSchema = RequestBaseSchema.extend({
+const StopRequestSchema = RequestBaseSchema.extend({
   type: z.literal("stop"),
 });
 
-export const RequestSchema = z.discriminatedUnion("type", [
+const RequestSchema = z.discriminatedUnion("type", [
   ExecuteRequestSchema,
   BrowsersRequestSchema,
   BrowserStopRequestSchema,
@@ -47,32 +47,32 @@ const ResponseBaseSchema = z.object({
   id: z.string().min(1),
 });
 
-export const StdoutMessageSchema = ResponseBaseSchema.extend({
+const StdoutMessageSchema = ResponseBaseSchema.extend({
   type: z.literal("stdout"),
   data: z.string(),
 });
 
-export const StderrMessageSchema = ResponseBaseSchema.extend({
+const StderrMessageSchema = ResponseBaseSchema.extend({
   type: z.literal("stderr"),
   data: z.string(),
 });
 
-export const CompleteMessageSchema = ResponseBaseSchema.extend({
+const CompleteMessageSchema = ResponseBaseSchema.extend({
   type: z.literal("complete"),
   success: z.literal(true),
 });
 
-export const ErrorMessageSchema = ResponseBaseSchema.extend({
+const ErrorMessageSchema = ResponseBaseSchema.extend({
   type: z.literal("error"),
   message: z.string(),
 });
 
-export const ResultMessageSchema = ResponseBaseSchema.extend({
+const ResultMessageSchema = ResponseBaseSchema.extend({
   type: z.literal("result"),
   data: z.unknown(),
 });
 
-export const ResponseSchema = z.discriminatedUnion("type", [
+const ResponseSchema = z.discriminatedUnion("type", [
   StdoutMessageSchema,
   StderrMessageSchema,
   CompleteMessageSchema,
@@ -80,7 +80,7 @@ export const ResponseSchema = z.discriminatedUnion("type", [
   ResultMessageSchema,
 ]);
 
-export type Request = z.infer<typeof RequestSchema>;
+type Request = z.infer<typeof RequestSchema>;
 export type ExecuteRequest = z.infer<typeof ExecuteRequestSchema>;
 export type Response = z.infer<typeof ResponseSchema>;
 
