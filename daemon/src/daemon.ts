@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, unlink, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { BrowserManager } from "./browser-manager.js";
@@ -21,6 +21,9 @@ const PID_PATH = getPidPath();
 const BROWSERS_DIR = getBrowsersDir();
 const DEFAULT_SCRIPT_TIMEOUT_MS = 30_000;
 const SOCKET_CLOSE_TIMEOUT_MS = 500;
+const UNIX_DEV_BROWSER_DIR_MODE = 0o700;
+const UNIX_DAEMON_SOCKET_MODE = 0o600;
+const UNIX_DAEMON_PID_MODE = 0o600;
 const EMBEDDED_PACKAGE_JSON = JSON.stringify({
   name: "dev-browser-runtime",
   private: true,
@@ -78,6 +81,14 @@ async function unlinkIfExists(filePath: string): Promise<void> {
       throw error;
     }
   }
+}
+
+async function chmodIfSupported(filePath: string, mode: number): Promise<void> {
+  if (process.platform === "win32") {
+    return;
+  }
+
+  await chmod(filePath, mode);
 }
 
 async function closeServerInstance(serverToClose: net.Server): Promise<void> {
@@ -393,12 +404,19 @@ async function shutdown(exitCode = 0): Promise<void> {
 }
 
 async function start(): Promise<void> {
-  await mkdir(BASE_DIR, { recursive: true });
+  await mkdir(BASE_DIR, {
+    recursive: true,
+    mode: UNIX_DEV_BROWSER_DIR_MODE,
+  });
+  await chmodIfSupported(BASE_DIR, UNIX_DEV_BROWSER_DIR_MODE);
   await ensureDevBrowserTempDir();
   if (requiresDaemonEndpointCleanup()) {
     await unlinkIfExists(SOCKET_PATH);
   }
-  await writeFile(PID_PATH, `${process.pid}\n`);
+  await writeFile(PID_PATH, `${process.pid}\n`, {
+    mode: UNIX_DAEMON_PID_MODE,
+  });
+  await chmodIfSupported(PID_PATH, UNIX_DAEMON_PID_MODE);
 
   server = net.createServer((socket) => {
     if (shuttingDown) {
@@ -459,6 +477,7 @@ async function start(): Promise<void> {
       resolve();
     });
   });
+  await chmodIfSupported(SOCKET_PATH, UNIX_DAEMON_SOCKET_MODE);
 
   process.stderr.write("daemon ready\n");
 }

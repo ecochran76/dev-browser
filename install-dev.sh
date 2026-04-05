@@ -8,6 +8,7 @@ cd "$REPO_DIR/daemon" && pnpm install
 
 echo "==> Bundling daemon..."
 cd "$REPO_DIR/daemon" && pnpm run bundle
+cd "$REPO_DIR/daemon" && pnpm run bundle:sandbox-client
 
 echo "==> Installing dev-browser binary..."
 cargo install --path "$REPO_DIR/cli" --force

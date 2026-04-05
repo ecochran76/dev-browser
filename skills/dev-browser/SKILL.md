@@ -1,6 +1,6 @@
 ---
 name: dev-browser
-description: Use for browser-only tasks on this machine: navigating sites, clicking UI, filling forms, taking screenshots, scraping rendered pages, or testing web-app flows in a real browser. Trigger when the user explicitly wants website interaction or browser automation. Do not use for general shell automation, API-only work, or local file manipulation.
+description: "Use for browser-only tasks on this machine: navigating sites, clicking UI, filling forms, taking screenshots, scraping rendered pages, or testing web-app flows in a real browser. Trigger when the user explicitly wants website interaction or browser automation. Do not use for general shell automation, API-only work, or local file manipulation."
 ---
 
 # Dev Browser

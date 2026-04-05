@@ -1,4 +1,5 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, readdir } from "node:fs/promises";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
@@ -49,10 +50,12 @@ type DebuggerWebSocketLookupResult =
     };
 
 const DISCOVERY_PORTS = [9222, 9223, 9224, 9225, 9226, 9227, 9228, 9229];
+const AGENT_BROWSER_DISCOVERY_TIMEOUT_MS = 1_000;
 const PROBE_TIMEOUT_MS = 750;
 const MANUAL_CONNECT_TIMEOUT_MS = 5_000;
 const PAGE_TITLE_TIMEOUT_MS = 1_500;
 const TARGET_ID_PATTERN = /^[a-f0-9]{16,}$/i;
+const AGENT_BROWSER_AUTH_FIELD = "_agentBrowserAuthToken";
 
 function isIgnorableFileError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;
@@ -152,6 +155,13 @@ export class BrowserManager {
     const devToolsBrowser = await tryEndpoint(devToolsEndpoint);
     if (devToolsBrowser) {
       return devToolsBrowser;
+    }
+
+    for (const endpoint of await this.discoverAgentBrowserEndpoints()) {
+      const connectedBrowser = await tryEndpoint(endpoint);
+      if (connectedBrowser) {
+        return connectedBrowser;
+      }
     }
 
     for (const port of DISCOVERY_PORTS) {
@@ -443,6 +453,10 @@ export class BrowserManager {
       return devToolsEndpoint;
     }
 
+    for (const endpoint of await this.discoverAgentBrowserEndpoints()) {
+      return endpoint;
+    }
+
     for (const port of DISCOVERY_PORTS) {
       const endpoint = await this.probePort(port);
       if (endpoint) {
@@ -574,6 +588,176 @@ export class BrowserManager {
       default:
         return [];
     }
+  }
+
+  private getAgentBrowserSocketDir(): string {
+    const explicit = process.env.AGENT_BROWSER_SOCKET_DIR?.trim();
+    if (explicit) {
+      return explicit;
+    }
+
+    const runtimeDir = process.env.XDG_RUNTIME_DIR?.trim();
+    if (runtimeDir) {
+      return path.join(runtimeDir, "agent-browser");
+    }
+
+    return path.join(this.dependencies.homedir(), ".agent-browser");
+  }
+
+  private async discoverAgentBrowserEndpoints(): Promise<string[]> {
+    const socketDir = this.getAgentBrowserSocketDir();
+
+    let entries;
+    try {
+      entries = await readdir(socketDir, { withFileTypes: true, encoding: "utf8" });
+    } catch (error) {
+      if (isIgnorableFileError(error)) {
+        return [];
+      }
+
+      throw error;
+    }
+
+    const sessions = entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".token"))
+      .map((entry) => entry.name.slice(0, -".token".length))
+      .sort((left, right) => left.localeCompare(right));
+
+    const endpoints: string[] = [];
+    for (const session of sessions) {
+      const endpoint = await this.queryAgentBrowserSessionCdpUrl(socketDir, session);
+      if (endpoint) {
+        endpoints.push(endpoint);
+      }
+    }
+
+    return endpoints;
+  }
+
+  private async queryAgentBrowserSessionCdpUrl(
+    socketDir: string,
+    session: string
+  ): Promise<string | null> {
+    let token: string;
+    try {
+      token = (await this.dependencies.readFile(path.join(socketDir, `${session}.token`), "utf8"))
+        .trim();
+    } catch (error) {
+      if (isIgnorableFileError(error)) {
+        return null;
+      }
+
+      throw error;
+    }
+
+    if (token.length === 0) {
+      return null;
+    }
+
+    if (this.dependencies.platform === "win32") {
+      let portContents: string;
+      try {
+        portContents = await this.dependencies.readFile(path.join(socketDir, `${session}.port`), "utf8");
+      } catch (error) {
+        if (isIgnorableFileError(error)) {
+          return null;
+        }
+
+        throw error;
+      }
+
+      const port = Number.parseInt(portContents.trim(), 10);
+      if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+        return null;
+      }
+
+      return this.requestAgentBrowserCdpUrl({ port, token });
+    }
+
+    return this.requestAgentBrowserCdpUrl({
+      socketPath: path.join(socketDir, `${session}.sock`),
+      token,
+    });
+  }
+
+  private requestAgentBrowserCdpUrl(options: {
+    socketPath?: string;
+    port?: number;
+    token: string;
+  }): Promise<string | null> {
+    return new Promise((resolve) => {
+      let settled = false;
+      const socket =
+        options.socketPath !== undefined
+          ? net.createConnection(options.socketPath)
+          : net.createConnection(options.port!, "127.0.0.1");
+
+      const finish = (value: string | null) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        clearTimeout(timeout);
+        socket.removeAllListeners();
+        if (!socket.destroyed) {
+          socket.destroy();
+        }
+        resolve(value);
+      };
+
+      const timeout = setTimeout(() => {
+        finish(null);
+      }, AGENT_BROWSER_DISCOVERY_TIMEOUT_MS);
+
+      socket.setEncoding("utf8");
+
+      let buffer = "";
+      socket.once("connect", () => {
+        const payload = JSON.stringify({
+          id: "dev-browser-discover",
+          action: "cdp_url",
+          [AGENT_BROWSER_AUTH_FIELD]: options.token,
+        });
+        socket.write(`${payload}\n`);
+      });
+
+      socket.on("data", (chunk: string) => {
+        buffer += chunk;
+        const newlineIndex = buffer.indexOf("\n");
+        if (newlineIndex === -1) {
+          return;
+        }
+
+        const line = buffer.slice(0, newlineIndex).trim();
+        if (!line) {
+          finish(null);
+          return;
+        }
+
+        try {
+          const payload = JSON.parse(line) as {
+            success?: unknown;
+            data?: { cdpUrl?: unknown };
+          };
+          const cdpUrl =
+            payload.success === true && typeof payload.data?.cdpUrl === "string"
+              ? payload.data.cdpUrl
+              : null;
+          finish(cdpUrl && cdpUrl.length > 0 ? cdpUrl : null);
+        } catch {
+          finish(null);
+        }
+      });
+
+      socket.once("error", () => {
+        finish(null);
+      });
+
+      socket.once("close", () => {
+        finish(null);
+      });
+    });
   }
 
   private async resolveEndpoint(endpoint: string): Promise<string> {

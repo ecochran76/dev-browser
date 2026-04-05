@@ -152,6 +152,12 @@ cp -r /tmp/dev-browser-skill/skills/dev-browser $SKILLS_DIR/dev-browser
 rm -rf /tmp/dev-browser-skill
 ```
 
+If you already have the `dev-browser` CLI installed locally, you can also install the bundled skill directly:
+
+```bash
+dev-browser install-skill --codex
+```
+
 </details>
 
 ## Script API

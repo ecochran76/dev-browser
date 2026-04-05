@@ -1,5 +1,8 @@
 import { createServer } from "node:http";
 import { EventEmitter } from "node:events";
+import { mkdtemp, readFile as readFileFromFs, rm, writeFile } from "node:fs/promises";
+import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -727,6 +730,88 @@ describe("BrowserManager auto-connect", () => {
       "http://127.0.0.1:9222/json/version",
       "http://127.0.0.1:9223/json/version",
     ]);
+  });
+
+  it("autoConnect discovers agent-browser managed sessions via the local daemon socket", async () => {
+    const socketDir = await mkdtemp(path.join(os.tmpdir(), "dev-browser-agent-browser-"));
+    const sessionName = "managed-session";
+    const socketPath = path.join(socketDir, `${sessionName}.sock`);
+    const tokenPath = path.join(socketDir, `${sessionName}.token`);
+    const token = "secret-token";
+    const cdpUrl = "ws://127.0.0.1:9333/devtools/browser/agent-browser";
+
+    await writeFile(tokenPath, `${token}\n`);
+
+    const server = net.createServer((socket) => {
+      socket.setEncoding("utf8");
+      let buffer = "";
+
+      socket.on("data", (chunk: string) => {
+        buffer += chunk;
+        const newlineIndex = buffer.indexOf("\n");
+        if (newlineIndex === -1) {
+          return;
+        }
+
+        const payload = JSON.parse(buffer.slice(0, newlineIndex)) as {
+          action?: string;
+          _agentBrowserAuthToken?: string;
+        };
+        expect(payload.action).toBe("cdp_url");
+        expect(payload._agentBrowserAuthToken).toBe(token);
+
+        socket.write(
+          `${JSON.stringify({
+            success: true,
+            data: {
+              cdpUrl,
+            },
+          })}\n`
+        );
+      });
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, () => {
+        server.off("error", reject);
+        resolve();
+      });
+    });
+
+    const connectOverCDP = vi.fn(async (endpoint: string) => {
+      expect(endpoint).toBe(cdpUrl);
+      const context = new MockContext();
+      const browser = new MockBrowser([context]);
+      context.setBrowser(browser);
+      return browser;
+    });
+
+    const previousSocketDir = process.env.AGENT_BROWSER_SOCKET_DIR;
+    process.env.AGENT_BROWSER_SOCKET_DIR = socketDir;
+
+    try {
+      const { manager } = createManager({
+        connectOverCDP,
+        readFile: vi.fn(async (filePath: string) => readFileFromFs(filePath, "utf8")),
+      });
+
+      const entry = await manager.autoConnect("agent-browser");
+      expect(entry.type).toBe("connected");
+      expect(connectOverCDP).toHaveBeenCalledTimes(1);
+      expect(connectOverCDP).toHaveBeenCalledWith(cdpUrl);
+    } finally {
+      if (previousSocketDir === undefined) {
+        delete process.env.AGENT_BROWSER_SOCKET_DIR;
+      } else {
+        process.env.AGENT_BROWSER_SOCKET_DIR = previousSocketDir;
+      }
+
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      });
+      await rm(socketDir, { recursive: true, force: true });
+    }
   });
 
   it("reports a clear error when auto-discovery finds no running Chrome", async () => {
