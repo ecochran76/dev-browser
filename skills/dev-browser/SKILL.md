@@ -1,19 +1,65 @@
 ---
 name: dev-browser
-description: Browser automation with persistent page state. Use when users ask to navigate websites, fill forms, take screenshots, extract web data, test web apps, or automate browser workflows. Trigger phrases include "go to [url]", "click on", "fill out the form", "take a screenshot", "scrape", "automate", "test the website", "log into", or any browser interaction request.
+description: Use for browser-only tasks on this machine: navigating sites, clicking UI, filling forms, taking screenshots, scraping rendered pages, or testing web-app flows in a real browser. Trigger when the user explicitly wants website interaction or browser automation. Do not use for general shell automation, API-only work, or local file manipulation.
 ---
 
 # Dev Browser
 
-A CLI for controlling browsers with sandboxed JavaScript scripts.
+Use the locally installed `dev-browser` CLI on this machine for sandboxed browser automation.
 
-## Installation
+## Local Setup
+
+- Binary path: `/home/ecochran76/.cargo/bin/dev-browser`
+- If `dev-browser` is not on PATH in the current shell, run `. "$HOME/.cargo/env"` first.
+- The embedded runtime is already installed under `~/.dev-browser`.
+
+## When To Use
+
+Use this skill when the task requires a real browser, for example:
+
+- Open a website and inspect or interact with it
+- Click buttons, fill forms, and submit flows
+- Capture screenshots
+- Scrape content that depends on client-side rendering
+- Test a web app manually through browser actions
+
+Do not use this skill when:
+
+- The task can be done with HTTP requests or an API
+- The task is generic automation unrelated to a browser
+- The user is asking for local filesystem or terminal work
+
+## Runtime Model
+
+- Scripts run in a sandboxed QuickJS runtime, not Node.js
+- Named pages from `browser.getPage("name")` persist between runs
+- Default mode launches a separate managed Chromium profile
+- `--connect` attaches to an already running Chrome with remote debugging enabled
+
+## Common Commands
 
 ```bash
-npm install -g dev-browser
-dev-browser install
+. "$HOME/.cargo/env"
+
+dev-browser --headless <<'EOF'
+const page = await browser.getPage("main");
+await page.goto("https://example.com", { waitUntil: "domcontentloaded" });
+console.log(await page.title());
+EOF
 ```
 
-## Usage
+```bash
+. "$HOME/.cargo/env"
 
-Run `dev-browser --help` to learn more.
+dev-browser --connect <<'EOF'
+const tabs = await browser.listPages();
+console.log(JSON.stringify(tabs, null, 2));
+EOF
+```
+
+## Operating Notes
+
+- Prefer direct Playwright actions when the target is known
+- Use persistent named pages to avoid re-navigation across turns
+- Use `--connect` only when the user wants to work inside an existing Chrome session
+- For command details and API reference, run `dev-browser --help`
