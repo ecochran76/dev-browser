@@ -35,6 +35,8 @@ Do not use this skill when:
 - Named pages from `browser.getPage("name")` persist between runs
 - Default mode launches a separate managed Chromium profile
 - `--connect` attaches to an already running Chrome with remote debugging enabled
+- `--port` targets a specific CDP port during auto-discovery
+- `--profile-path` reads `DevToolsActivePort` from a custom Chrome user-data/profile root
 
 ## Common Commands
 
@@ -52,6 +54,24 @@ EOF
 . "$HOME/.cargo/env"
 
 dev-browser --connect <<'EOF'
+const tabs = await browser.listPages();
+console.log(JSON.stringify(tabs, null, 2));
+EOF
+```
+
+```bash
+. "$HOME/.cargo/env"
+
+dev-browser --connect --port 9333 <<'EOF'
+const tabs = await browser.listPages();
+console.log(JSON.stringify(tabs, null, 2));
+EOF
+```
+
+```bash
+. "$HOME/.cargo/env"
+
+dev-browser --connect --profile-path ~/.config/google-chrome-agent <<'EOF'
 const tabs = await browser.listPages();
 console.log(JSON.stringify(tabs, null, 2));
 EOF

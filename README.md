@@ -35,6 +35,18 @@ dev-browser --connect <<'EOF'
 const tabs = await browser.listPages();
 console.log(JSON.stringify(tabs, null, 2));
 EOF
+
+# Connect to a custom CDP port
+dev-browser --connect --port 9333 <<'EOF'
+const tabs = await browser.listPages();
+console.log(JSON.stringify(tabs, null, 2));
+EOF
+
+# Read DevToolsActivePort from a custom Chrome user-data/profile root
+dev-browser --connect --profile-path ~/.config/google-chrome-agent <<'EOF'
+const tabs = await browser.listPages();
+console.log(JSON.stringify(tabs, null, 2));
+EOF
 ```
 
 ### PowerShell (Windows)

@@ -140,9 +140,15 @@ function createMessageQueue(socket: net.Socket) {
 async function handleExecute(socket: net.Socket, request: ExecuteRequest): Promise<void> {
   await withBrowserLock(request.browser, async () => {
     if (request.connect === "auto") {
-      await manager.autoConnect(request.browser);
+      await manager.autoConnect(request.browser, {
+        port: request.connectPort,
+        profilePath: request.connectProfilePath,
+      });
     } else if (request.connect) {
-      await manager.connectBrowser(request.browser, request.connect);
+      await manager.connectBrowser(request.browser, request.connect, {
+        port: request.connectPort,
+        profilePath: request.connectProfilePath,
+      });
     } else {
       await manager.ensureBrowser(request.browser, {
         headless: request.headless,

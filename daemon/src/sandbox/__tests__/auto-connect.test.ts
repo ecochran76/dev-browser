@@ -139,8 +139,8 @@ class MockBrowser extends EventEmitter {
 }
 
 type BrowserManagerInternals = {
-  readDevToolsActivePort(expectedPort?: number): Promise<string | null>;
-  discoverChrome(): Promise<string | null>;
+  readDevToolsActivePort(expectedPort?: number, profilePath?: string): Promise<string | null>;
+  discoverChrome(options?: { port?: number; profilePath?: string }): Promise<string | null>;
   probePort(port: number): Promise<string | null>;
 };
 
@@ -334,6 +334,25 @@ describe("BrowserManager auto-connect", () => {
     await expect(getInternals(manager).readDevToolsActivePort()).resolves.toBe(
       "ws://127.0.0.1:9222/devtools/browser/windows-port-file"
     );
+  });
+
+  it("checks a custom profile path for DevToolsActivePort before default locations", async () => {
+    const customProfilePath = "/tmp/custom-chrome-profile";
+    const devToolsPath = path.join(customProfilePath, "DevToolsActivePort");
+    const readFile = vi.fn(async (filePath: string) => {
+      if (filePath === devToolsPath) {
+        return "9444\n/devtools/browser/custom-profile\n";
+      }
+
+      throw createEnoentError(filePath);
+    });
+    const { manager } = createManager({
+      readFile,
+    });
+
+    await expect(
+      getInternals(manager).readDevToolsActivePort(undefined, customProfilePath)
+    ).resolves.toBe("ws://127.0.0.1:9444/devtools/browser/custom-profile");
   });
 
   it("returns null when DevToolsActivePort is missing", async () => {
@@ -662,6 +681,45 @@ describe("BrowserManager auto-connect", () => {
     ]);
   });
 
+  it("autoConnect can target a specific discovery port", async () => {
+    const browser = new MockBrowser([new MockContext()]);
+    const requests: string[] = [];
+    const connectOverCDP = vi.fn(async () => browser);
+    const fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      requests.push(url);
+
+      if (url === "http://127.0.0.1:9333/json/version") {
+        return new Response(
+          JSON.stringify({
+            webSocketDebuggerUrl: "ws://127.0.0.1:9333/devtools/browser/custom-port",
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          }
+        );
+      }
+
+      throw new Error("unexpected port");
+    }) as typeof globalThis.fetch;
+    const readFile = vi.fn(async (filePath: string) => {
+      throw createEnoentError(filePath);
+    });
+    const { manager } = createManager({
+      connectOverCDP,
+      fetch,
+      readFile,
+    });
+
+    await manager.autoConnect("auto-browser", { port: 9333 });
+
+    expect(requests).toEqual(["http://127.0.0.1:9333/json/version"]);
+    expect(connectOverCDP).toHaveBeenCalledWith("ws://127.0.0.1:9333/devtools/browser/custom-port");
+  });
+
   it("autoConnect falls back from DevToolsActivePort to port probing when the direct websocket is stale", async () => {
     const homeDir = "/Users/tester";
     const devToolsPath = path.join(
@@ -912,6 +970,33 @@ describe("protocol execute request", () => {
         browser: "default",
         script: 'console.log("hi")',
         timeoutMs: 10_000,
+      },
+    });
+  });
+
+  it("accepts custom connect port and profile path hints", () => {
+    const result = parseRequest(
+      JSON.stringify({
+        id: "req-connect-hints",
+        type: "execute",
+        browser: "default",
+        script: 'console.log("hi")',
+        connect: "auto",
+        connectPort: 9333,
+        connectProfilePath: "/tmp/custom-profile",
+      })
+    );
+
+    expect(result).toEqual({
+      success: true,
+      request: {
+        id: "req-connect-hints",
+        type: "execute",
+        browser: "default",
+        script: 'console.log("hi")',
+        connect: "auto",
+        connectPort: 9333,
+        connectProfilePath: "/tmp/custom-profile",
       },
     });
   });

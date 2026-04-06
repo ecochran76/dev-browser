@@ -55,6 +55,14 @@ Primary invocation styles:
     const page = await browser.getPage("main");
     await page.goto("https://example.com");
   EOF
+  dev-browser --connect --port 9333 <<'EOF'
+    const page = await browser.getPage("main");
+    console.log(await page.title());
+  EOF
+  dev-browser --connect --profile-path ~/.config/google-chrome-alt <<'EOF'
+    const tabs = await browser.listPages();
+    console.log(JSON.stringify(tabs, null, 2));
+  EOF
   dev-browser --connect <<'EOF'
     const page = await browser.getPage("main");
     console.log(await page.title());
@@ -117,9 +125,26 @@ struct Cli {
         default_missing_value = "auto",
         value_name = "URL",
         help = "Connect to a running Chrome instance",
-        long_help = "Connect to a running Chrome instance.\n\nWithout a URL: auto-discovers Chrome with debugging enabled.\nWorks with Chrome's built-in remote debugging\n(chrome://inspect/#remote-debugging) and classic\n--remote-debugging-port mode.\n\nWith a URL: connects to the specified CDP endpoint.\nAccepts HTTP or WebSocket CDP endpoints such as `http://localhost:9222` or `ws://host:9222/devtools/browser/...`.\n\nTo launch Chrome with debugging, use a command such as:\n  chrome.exe --remote-debugging-port=9222\n  google-chrome --remote-debugging-port=9222\n\nOr visit chrome://inspect/#remote-debugging to configure."
+        long_help = "Connect to a running Chrome instance.\n\nWithout a URL: auto-discovers Chrome with debugging enabled.\nWorks with Chrome's built-in remote debugging\n(chrome://inspect/#remote-debugging) and classic\n--remote-debugging-port mode.\n\nWith a URL: connects to the specified CDP endpoint.\nAccepts HTTP or WebSocket CDP endpoints such as `http://localhost:9222` or `ws://host:9222/devtools/browser/...`.\n\nUse `--port` to target a specific CDP port during auto-discovery, and `--profile-path` to read `DevToolsActivePort` from a custom Chrome user-data/profile root.\n\nTo launch Chrome with debugging, use a command such as:\n  chrome.exe --remote-debugging-port=9222\n  google-chrome --remote-debugging-port=9222\n\nOr visit chrome://inspect/#remote-debugging to configure."
     )]
     connect: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "PORT",
+        value_parser = clap::value_parser!(u16).range(1..),
+        help = "Prefer a specific CDP port when using --connect auto-discovery",
+        long_help = "Prefer a specific CDP port when using `--connect` auto-discovery.\n\nThis is useful when another agent or tool launches Chrome with a custom `--remote-debugging-port` outside the default discovery range.\n\nIf `--connect` is omitted, specifying `--port` implies auto-connect mode."
+    )]
+    port: Option<u16>,
+
+    #[arg(
+        long,
+        value_name = "PATH",
+        help = "Read DevToolsActivePort from a custom Chrome user-data/profile root",
+        long_help = "Read `DevToolsActivePort` from a custom Chrome user-data/profile root.\n\nUse this when Chrome or another agent-managed browser writes its remote-debugging metadata outside the default Chrome/Chromium locations.\n\nIf `--connect` is omitted, specifying `--profile-path` implies auto-connect mode."
+    )]
+    profile_path: Option<String>,
 
     #[arg(
         long,
@@ -328,6 +353,19 @@ fn run() -> Result<i32, Box<dyn Error>> {
 fn run_script(cli: &Cli, script: String) -> Result<i32, Box<dyn Error>> {
     ensure_daemon()?;
 
+    if let Some(connect) = &cli.connect {
+        if connect != "auto" {
+            if cli.port.is_some() {
+                return Err("`--port` cannot be combined with an explicit `--connect` URL.".into());
+            }
+            if cli.profile_path.is_some() {
+                return Err(
+                    "`--profile-path` cannot be combined with an explicit `--connect` URL.".into(),
+                );
+            }
+        }
+    }
+
     let timeout_ms = u64::from(cli.timeout)
         .checked_mul(1_000)
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Timeout value is too large"))?;
@@ -350,6 +388,16 @@ fn run_script(cli: &Cli, script: String) -> Result<i32, Box<dyn Error>> {
 
     if let Some(endpoint) = &cli.connect {
         request["connect"] = Value::String(endpoint.clone());
+    } else if cli.port.is_some() || cli.profile_path.is_some() {
+        request["connect"] = Value::String("auto".to_string());
+    }
+
+    if let Some(port) = cli.port {
+        request["connectPort"] = Value::Number(serde_json::Number::from(port));
+    }
+
+    if let Some(profile_path) = &cli.profile_path {
+        request["connectProfilePath"] = Value::String(profile_path.clone());
     }
 
     send_request(request, ResultMode::Json)

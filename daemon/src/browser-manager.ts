@@ -121,7 +121,13 @@ export class BrowserManager {
     return this.launchBrowser(name, requestedHeadless, requestedIgnoreHTTPSErrors);
   }
 
-  async autoConnect(name: string): Promise<BrowserEntry> {
+  async autoConnect(
+    name: string,
+    options: {
+      port?: number;
+      profilePath?: string;
+    } = {}
+  ): Promise<BrowserEntry> {
     await this.ensureBaseDir();
 
     const existing = this.browsers.get(name);
@@ -151,7 +157,7 @@ export class BrowserManager {
       }
     };
 
-    const devToolsEndpoint = await this.readDevToolsActivePort();
+    const devToolsEndpoint = await this.readDevToolsActivePort(undefined, options.profilePath);
     const devToolsBrowser = await tryEndpoint(devToolsEndpoint);
     if (devToolsBrowser) {
       return devToolsBrowser;
@@ -164,7 +170,8 @@ export class BrowserManager {
       }
     }
 
-    for (const port of DISCOVERY_PORTS) {
+    const candidatePorts = options.port !== undefined ? [options.port] : DISCOVERY_PORTS;
+    for (const port of candidatePorts) {
       const endpoint = await this.probePort(port);
       const connectedBrowser = await tryEndpoint(endpoint);
       if (connectedBrowser) {
@@ -175,13 +182,20 @@ export class BrowserManager {
     throw new Error(this.buildAutoConnectError(lastError));
   }
 
-  async connectBrowser(name: string, endpoint: string): Promise<BrowserEntry> {
+  async connectBrowser(
+    name: string,
+    endpoint: string,
+    options: {
+      port?: number;
+      profilePath?: string;
+    } = {}
+  ): Promise<BrowserEntry> {
     if (endpoint === "auto") {
-      return this.autoConnect(name);
+      return this.autoConnect(name, options);
     }
 
     await this.ensureBaseDir();
-    const resolvedEndpoint = await this.resolveEndpoint(endpoint);
+    const resolvedEndpoint = await this.resolveEndpoint(endpoint, options);
 
     const existing = this.browsers.get(name);
     if (existing) {
@@ -447,8 +461,13 @@ export class BrowserManager {
     }
   }
 
-  private async discoverChrome(): Promise<string | null> {
-    const devToolsEndpoint = await this.readDevToolsActivePort();
+  private async discoverChrome(
+    options: {
+      port?: number;
+      profilePath?: string;
+    } = {}
+  ): Promise<string | null> {
+    const devToolsEndpoint = await this.readDevToolsActivePort(undefined, options.profilePath);
     if (devToolsEndpoint) {
       return devToolsEndpoint;
     }
@@ -457,7 +476,8 @@ export class BrowserManager {
       return endpoint;
     }
 
-    for (const port of DISCOVERY_PORTS) {
+    const candidatePorts = options.port !== undefined ? [options.port] : DISCOVERY_PORTS;
+    for (const port of candidatePorts) {
       const endpoint = await this.probePort(port);
       if (endpoint) {
         return endpoint;
@@ -467,8 +487,11 @@ export class BrowserManager {
     return null;
   }
 
-  private async readDevToolsActivePort(expectedPort?: number): Promise<string | null> {
-    for (const candidate of this.getDevToolsActivePortCandidates()) {
+  private async readDevToolsActivePort(
+    expectedPort?: number,
+    profilePath?: string
+  ): Promise<string | null> {
+    for (const candidate of this.getDevToolsActivePortCandidates(profilePath)) {
       let contents: string;
 
       try {
@@ -505,12 +528,17 @@ export class BrowserManager {
     return null;
   }
 
-  private getDevToolsActivePortCandidates(): string[] {
+  private getDevToolsActivePortCandidates(profilePath?: string): string[] {
     const homeDir = this.dependencies.homedir();
+    const customCandidates =
+      profilePath && profilePath.trim().length > 0
+        ? this.normalizeDevToolsActivePortCandidates(profilePath)
+        : [];
 
     switch (this.dependencies.platform) {
       case "darwin":
         return [
+          ...customCandidates,
           path.join(
             homeDir,
             "Library",
@@ -539,6 +567,7 @@ export class BrowserManager {
         ];
       case "linux":
         return [
+          ...customCandidates,
           path.join(homeDir, ".config", "google-chrome", "DevToolsActivePort"),
           path.join(homeDir, ".config", "chromium", "DevToolsActivePort"),
           path.join(homeDir, ".config", "google-chrome-beta", "DevToolsActivePort"),
@@ -547,6 +576,7 @@ export class BrowserManager {
         ];
       case "win32":
         return [
+          ...customCandidates,
           path.join(
             homeDir,
             "AppData",
@@ -586,8 +616,22 @@ export class BrowserManager {
           ),
         ];
       default:
-        return [];
+        return customCandidates;
     }
+  }
+
+  private normalizeDevToolsActivePortCandidates(profilePath: string): string[] {
+    const trimmed = profilePath.trim();
+    if (trimmed.length === 0) {
+      return [];
+    }
+
+    const resolved = path.resolve(trimmed);
+    if (path.basename(resolved) === "DevToolsActivePort") {
+      return [resolved];
+    }
+
+    return [path.join(resolved, "DevToolsActivePort"), resolved];
   }
 
   private getAgentBrowserSocketDir(): string {
@@ -760,9 +804,15 @@ export class BrowserManager {
     });
   }
 
-  private async resolveEndpoint(endpoint: string): Promise<string> {
+  private async resolveEndpoint(
+    endpoint: string,
+    options: {
+      port?: number;
+      profilePath?: string;
+    } = {}
+  ): Promise<string> {
     if (endpoint === "auto") {
-      const discoveredEndpoint = await this.discoverChrome();
+      const discoveredEndpoint = await this.discoverChrome(options);
       if (discoveredEndpoint) {
         return discoveredEndpoint;
       }
@@ -773,7 +823,8 @@ export class BrowserManager {
     if (isHttpEndpoint(endpoint)) {
       const discoveredEndpoint = await this.resolveHttpEndpoint(
         endpoint,
-        MANUAL_CONNECT_TIMEOUT_MS
+        MANUAL_CONNECT_TIMEOUT_MS,
+        options
       );
 
       if (!discoveredEndpoint) {
@@ -870,7 +921,13 @@ export class BrowserManager {
     return details.join("\n");
   }
 
-  private async resolveHttpEndpoint(endpoint: string, timeoutMs: number): Promise<string | null> {
+  private async resolveHttpEndpoint(
+    endpoint: string,
+    timeoutMs: number,
+    options: {
+      profilePath?: string;
+    } = {}
+  ): Promise<string | null> {
     const result = await this.fetchDebuggerWebSocketUrl(endpoint, timeoutMs);
     if (result.status === "ok") {
       return result.webSocketDebuggerUrl;
@@ -879,7 +936,7 @@ export class BrowserManager {
     if (result.status === "not-found") {
       const port = this.getEndpointPort(endpoint);
       if (port !== null) {
-        return this.readDevToolsActivePort(port);
+        return this.readDevToolsActivePort(port, options.profilePath);
       }
     }
 
