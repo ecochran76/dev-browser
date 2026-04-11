@@ -47,6 +47,12 @@ dev-browser --connect --profile-path ~/.config/google-chrome-agent <<'EOF'
 const tabs = await browser.listPages();
 console.log(JSON.stringify(tabs, null, 2));
 EOF
+
+# From WSL, attach to a Windows Chrome profile explicitly
+dev-browser --connect --profile-path "/mnt/c/Users/<WindowsUser>/AppData/Local/Google/Chrome/User Data" <<'EOF'
+const tabs = await browser.listPages();
+console.log(JSON.stringify(tabs, null, 2));
+EOF
 ```
 
 ### PowerShell (Windows)
@@ -85,6 +91,20 @@ dev-browser --connect
 ```
 
 Windows npm installs download the native `dev-browser-windows-x64.exe` release asset during `postinstall`, and the generated npm shims invoke that executable directly.
+
+### WSL notes
+
+When `dev-browser` runs inside WSL:
+
+- daemon-managed launch mode still uses Playwright's bundled Chromium profile under `~/.dev-browser`
+- `--connect` can auto-discover Chrome or Brave instances started on the Windows side when remote debugging is enabled
+- if auto-discovery still misses your browser, point directly at the Windows profile root with `--profile-path "/mnt/c/Users/<WindowsUser>/AppData/Local/Google/Chrome/User Data"`
+
+Example:
+
+```bash
+dev-browser --connect --profile-path "/mnt/c/Users/<WindowsUser>/AppData/Local/Google/Chrome/User Data"
+```
 
 ### Using with AI agents
 

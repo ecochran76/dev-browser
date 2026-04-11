@@ -34,9 +34,11 @@ type BrowserManagerDependencies = {
   connectOverCDP: typeof chromium.connectOverCDP;
   fetch: typeof globalThis.fetch;
   homedir: () => string;
+  isWsl: boolean;
   launchPersistentContext: typeof chromium.launchPersistentContext;
   mkdir: typeof mkdir;
   platform: NodeJS.Platform;
+  readdir: typeof readdir;
   readFile: typeof readFile;
 };
 
@@ -80,14 +82,20 @@ export class BrowserManager {
       connectOverCDP: chromium.connectOverCDP.bind(chromium) as typeof chromium.connectOverCDP,
       fetch: globalThis.fetch,
       homedir: os.homedir,
+      isWsl: BrowserManager.detectWsl(),
       launchPersistentContext: chromium.launchPersistentContext.bind(
         chromium
       ) as typeof chromium.launchPersistentContext,
       mkdir,
       platform: process.platform,
+      readdir,
       readFile,
       ...dependencies,
     };
+  }
+
+  private static detectWsl(): boolean {
+    return process.platform === "linux" && !!(process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP);
   }
 
   async ensureBrowser(
@@ -491,7 +499,7 @@ export class BrowserManager {
     expectedPort?: number,
     profilePath?: string
   ): Promise<string | null> {
-    for (const candidate of this.getDevToolsActivePortCandidates(profilePath)) {
+    for (const candidate of await this.getDevToolsActivePortCandidates(profilePath)) {
       let contents: string;
 
       try {
@@ -528,7 +536,7 @@ export class BrowserManager {
     return null;
   }
 
-  private getDevToolsActivePortCandidates(profilePath?: string): string[] {
+  private async getDevToolsActivePortCandidates(profilePath?: string): Promise<string[]> {
     const homeDir = this.dependencies.homedir();
     const customCandidates =
       profilePath && profilePath.trim().length > 0
@@ -537,7 +545,7 @@ export class BrowserManager {
 
     switch (this.dependencies.platform) {
       case "darwin":
-        return [
+        return this.dedupePaths([
           ...customCandidates,
           path.join(
             homeDir,
@@ -564,18 +572,19 @@ export class BrowserManager {
             "Brave-Browser",
             "DevToolsActivePort"
           ),
-        ];
+        ]);
       case "linux":
-        return [
+        return this.dedupePaths([
           ...customCandidates,
           path.join(homeDir, ".config", "google-chrome", "DevToolsActivePort"),
           path.join(homeDir, ".config", "chromium", "DevToolsActivePort"),
           path.join(homeDir, ".config", "google-chrome-beta", "DevToolsActivePort"),
           path.join(homeDir, ".config", "google-chrome-unstable", "DevToolsActivePort"),
           path.join(homeDir, ".config", "BraveSoftware", "Brave-Browser", "DevToolsActivePort"),
-        ];
+          ...(this.dependencies.isWsl ? await this.getWslWindowsDevToolsActivePortCandidates() : []),
+        ]);
       case "win32":
-        return [
+        return this.dedupePaths([
           ...customCandidates,
           path.join(
             homeDir,
@@ -614,9 +623,9 @@ export class BrowserManager {
             "User Data",
             "DevToolsActivePort"
           ),
-        ];
+        ]);
       default:
-        return customCandidates;
+        return this.dedupePaths(customCandidates);
     }
   }
 
@@ -632,6 +641,69 @@ export class BrowserManager {
     }
 
     return [path.join(resolved, "DevToolsActivePort"), resolved];
+  }
+
+  private async getWslWindowsDevToolsActivePortCandidates(): Promise<string[]> {
+    const windowsUsersRoot = path.join("/mnt", "c", "Users");
+    let entries;
+    try {
+      entries = await this.dependencies.readdir(windowsUsersRoot, {
+        withFileTypes: true,
+        encoding: "utf8",
+      });
+    } catch (error) {
+      if (isIgnorableFileError(error)) {
+        return [];
+      }
+
+      throw error;
+    }
+
+    const candidates: string[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+
+      const userDir = path.join(windowsUsersRoot, entry.name);
+      candidates.push(
+        path.join(userDir, "AppData", "Local", "Google", "Chrome", "User Data", "DevToolsActivePort"),
+        path.join(
+          userDir,
+          "AppData",
+          "Local",
+          "Google",
+          "Chrome Beta",
+          "User Data",
+          "DevToolsActivePort"
+        ),
+        path.join(
+          userDir,
+          "AppData",
+          "Local",
+          "Google",
+          "Chrome SxS",
+          "User Data",
+          "DevToolsActivePort"
+        ),
+        path.join(userDir, "AppData", "Local", "Chromium", "User Data", "DevToolsActivePort"),
+        path.join(
+          userDir,
+          "AppData",
+          "Local",
+          "BraveSoftware",
+          "Brave-Browser",
+          "User Data",
+          "DevToolsActivePort"
+        )
+      );
+    }
+
+    return this.dedupePaths(candidates);
+  }
+
+  private dedupePaths(paths: string[]): string[] {
+    return Array.from(new Set(paths));
   }
 
   private getAgentBrowserSocketDir(): string {

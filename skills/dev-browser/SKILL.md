@@ -37,6 +37,7 @@ Do not use this skill when:
 - `--connect` attaches to an already running Chrome with remote debugging enabled
 - `--port` targets a specific CDP port during auto-discovery
 - `--profile-path` reads `DevToolsActivePort` from a custom Chrome user-data/profile root
+- In WSL, `--connect` can target Windows Chrome profiles under `/mnt/c/Users/.../AppData/Local/...`
 
 ## Common Commands
 
@@ -72,6 +73,15 @@ EOF
 . "$HOME/.cargo/env"
 
 dev-browser --connect --profile-path ~/.config/google-chrome-agent <<'EOF'
+const tabs = await browser.listPages();
+console.log(JSON.stringify(tabs, null, 2));
+EOF
+```
+
+```bash
+. "$HOME/.cargo/env"
+
+dev-browser --connect --profile-path "/mnt/c/Users/<WindowsUser>/AppData/Local/Google/Chrome/User Data" <<'EOF'
 const tabs = await browser.listPages();
 console.log(JSON.stringify(tabs, null, 2));
 EOF

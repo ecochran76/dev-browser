@@ -157,8 +157,10 @@ function createManager(
     connectOverCDP?: ReturnType<typeof vi.fn>;
     fetch?: typeof globalThis.fetch;
     homedir?: () => string;
+    isWsl?: boolean;
     launchPersistentContext?: ReturnType<typeof vi.fn>;
     platform?: NodeJS.Platform;
+    readdir?: ReturnType<typeof vi.fn>;
     readFile?: ReturnType<typeof vi.fn>;
   } = {}
 ) {
@@ -175,14 +177,19 @@ function createManager(
     }) as ReturnType<typeof vi.fn>);
   const launchPersistentContext =
     options.launchPersistentContext ?? (vi.fn() as ReturnType<typeof vi.fn>);
+  const readdir =
+    options.readdir ??
+    (vi.fn(async () => []) as ReturnType<typeof vi.fn>);
 
   const manager = new BrowserManager(path.join("/tmp", "dev-browser-auto-connect-tests"), {
     connectOverCDP: connectOverCDP as never,
     fetch,
     homedir: options.homedir ?? (() => "/Users/tester"),
+    isWsl: options.isWsl ?? false,
     launchPersistentContext: launchPersistentContext as never,
     mkdir: vi.fn(async () => undefined) as never,
     platform: options.platform ?? "darwin",
+    readdir: readdir as never,
     readFile: readFile as never,
   });
 
@@ -191,6 +198,7 @@ function createManager(
     connectOverCDP,
     fetch,
     launchPersistentContext,
+    readdir,
     readFile,
   };
 }
@@ -718,6 +726,44 @@ describe("BrowserManager auto-connect", () => {
 
     expect(requests).toEqual(["http://127.0.0.1:9333/json/version"]);
     expect(connectOverCDP).toHaveBeenCalledWith("ws://127.0.0.1:9333/devtools/browser/custom-port");
+  });
+
+  it("autoConnect discovers Windows Chrome profiles when running under WSL", async () => {
+    const browser = new MockBrowser([new MockContext()]);
+    const connectOverCDP = vi.fn(async () => browser);
+    const readdir = vi.fn(async () => [
+      {
+        isDirectory: () => true,
+        name: "ecoch",
+      },
+    ]);
+    const readFile = vi.fn(async (filePath: string) => {
+      if (
+        filePath ===
+        path.join(
+          "/mnt/c/Users/ecoch/AppData/Local/Google/Chrome/User Data/DevToolsActivePort"
+        )
+      ) {
+        return "9222\n/devtools/browser/wsl-discovered\n";
+      }
+
+      throw createEnoentError(filePath);
+    });
+    const { manager } = createManager({
+      connectOverCDP,
+      platform: "linux",
+      isWsl: true,
+      readdir,
+      readFile,
+    });
+
+    await manager.autoConnect("wsl-browser");
+
+    expect(readdir).toHaveBeenCalledWith("/mnt/c/Users", {
+      encoding: "utf8",
+      withFileTypes: true,
+    });
+    expect(connectOverCDP).toHaveBeenCalledWith("ws://127.0.0.1:9222/devtools/browser/wsl-discovered");
   });
 
   it("autoConnect falls back from DevToolsActivePort to port probing when the direct websocket is stale", async () => {
